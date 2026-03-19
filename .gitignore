@@ -1,0 +1,10 @@
+datasets/
+*.png
+*.jpg
+*.jpeg
+*.csv
+__pycache__/
+.venv/
+.DS_Store
+.idea/
+*.ipynb_checkpoints
