@@ -1,4 +1,9 @@
-datasets/
+datasets/ACDC/
+datasets/DAWN/
+datasets/combined_dataset.csv
+!datasets/ACDC.dvc
+!datasets/DAWN.dvc
+!datasets/.gitignore
 *.png
 *.jpg
 *.jpeg
