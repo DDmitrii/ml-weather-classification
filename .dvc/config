@@ -1,0 +1,4 @@
+[core]
+    remote = yadisk
+['remote "yadisk"']
+    url = webdavs://webdav.yandex.ru/dvc-weather-data
