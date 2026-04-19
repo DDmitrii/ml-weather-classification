@@ -13,3 +13,12 @@ __pycache__/
 .DS_Store
 .idea/
 *.ipynb_checkpoints
+mlflow.db
+outputs/
+data/
+checkpoints/
+__pycache__/
+*.pyc
+.venv/
+*.ckpt
+mlruns/

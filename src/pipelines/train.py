@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 
-from src.models.model import WeatherModel
-from src.models.train import train_one_epoch
-from src.models.evaluate import evaluate
+from src.model.model import WeatherModel
+from src.model.train import train_one_epoch
+from src.model.evaluate import evaluate
 
 from src.utils.device import get_device
 from src.utils.seed import set_seed
