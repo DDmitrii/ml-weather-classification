@@ -6,11 +6,11 @@ import torch.nn.functional as F
 class WeightedCrossEntropyLoss(nn.Module):
     """CrossEntropy с весами классов для борьбы с дисбалансом."""
 
-    def __init__(self, weight: torch.Tensor = None):
+    def __init__(self, weight: torch.Tensor):
         super().__init__()
-        self.weight = weight
+        self.register_buffer("weight", weight)
 
-    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    def forward(self, logits, targets):
         return F.cross_entropy(logits, targets, weight=self.weight)
 
 
