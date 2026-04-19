@@ -45,7 +45,7 @@ checkpoints:
 
 mlflow:
   experiment_name: weather-clf
-  tracking_uri: http://localhost:5000
+  tracking_uri: sqlite:///mlflow.db
   log_model: true
 
 seed: 42

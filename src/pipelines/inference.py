@@ -4,7 +4,7 @@ from PIL import Image
 import hydra
 from omegaconf import DictConfig
 
-from src.models.weather_model import WeatherModel
+from src.model.weather_model import WeatherModel
 
 
 def predict(image_path: str, checkpoint_path: str, device: str = "cuda"):
