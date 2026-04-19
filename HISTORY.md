@@ -43,18 +43,5 @@ python scripts/update_history.py --summary mlruns/local_artifacts/experiments/<t
 - MLflow run id: `d0290604e3294b7bb99d2f9b1b172899`
 - MLflow page: http://127.0.0.1:5000/#/experiments/202556990899135500/runs/d0290604e3294b7bb99d2f9b1b172899
 
-## exp1_hflip_light
 
-- Experiment dir: `C:\Users\Karina\PycharmProjects\ml-weather-classification\ml-weather-classification\mlruns\local_artifacts\experiments\20260419_181847_exp1_hflip_light`
-- Resolved config: `C:\Users\Karina\PycharmProjects\ml-weather-classification\ml-weather-classification\mlruns\local_artifacts\experiments\20260419_181847_exp1_hflip_light\resolved_config.yaml`
-- Checkpoint: `C:\Users\Karina\PycharmProjects\ml-weather-classification\ml-weather-classification\mlruns\local_artifacts\experiments\20260419_181847_exp1_hflip_light\checkpoints\best_model_state.pth`
-- Best epoch: `1`
-- Best val accuracy: 0.9851
-- Test accuracy: 0.8664
-- Test precision: 0.8790
-- Test recall: 0.7896
-- Test F1: 0.7969
-- MLflow experiment: `weather_classification`
-- MLflow run id: `d0290604e3294b7bb99d2f9b1b172899`
-- MLflow page: http://127.0.0.1:5000/#/experiments/202556990899135500/runs/d0290604e3294b7bb99d2f9b1b172899
 
