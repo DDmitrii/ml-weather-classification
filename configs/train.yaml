@@ -1,0 +1,51 @@
+defaults:
+  - _self_
+
+data:
+  train_dir: data/train
+  val_dir:   data/val
+  test_dir:  data/test
+  img_size:  224
+  batch_size: 32
+  num_workers: 4
+  class_names:
+    - clear
+    - fog
+    - for_rain
+    - night
+    - night_fog
+    - night_rain
+    - night_snow
+    - rain
+    - snow
+
+model:
+  name: efficientnet_b0
+  pretrained: true
+  num_classes: 9
+  dropout: 0.3
+
+training:
+  max_epochs: 30
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  precision: "16-mixed"
+  early_stopping_patience: 7
+  scheduler: cosine
+  warmup_epochs: 2
+  # Веса классов для борьбы с дисбалансом (1 / count, нормализовано)
+  use_class_weights: true
+
+checkpoints:
+  dirpath: checkpoints/
+  monitor: val_f1
+  mode: max
+  save_top_k: 3
+  filename: "{epoch:02d}-{val_f1:.4f}"
+
+mlflow:
+  experiment_name: weather-clf
+  tracking_uri: http://localhost:5000
+  log_model: true
+
+seed: 42
