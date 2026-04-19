@@ -1,0 +1,39 @@
+torch>=2.0.0
+torchvision>=0.15.0
+scikit-learn>=1.2.0
+numpy>=1.23.0
+tqdm>=4.65.0
+pillow>=9.0.0
+pyyaml>=6.0
+# Deep Learning
+torch>=2.2.0
+torchvision>=0.17.0
+pytorch-lightning>=2.2.0
+timm>=0.9.0
+
+# Data
+albumentations>=1.4.0
+opencv-python-headless>=4.9.0
+Pillow>=10.0.0
+
+# MLOps
+mlflow>=2.12.0
+optuna>=3.6.0
+hydra-core>=1.3.0
+omegaconf>=2.3.0
+dvc>=3.49.0
+
+# Explainability
+grad-cam>=1.4.8
+
+# Serving
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
+
+# Utils
+scikit-learn>=1.4.0
+pandas>=2.2.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+tqdm>=4.66.0

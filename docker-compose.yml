@@ -1,0 +1,48 @@
+services:
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns
+    environment:
+      CONFIG_PATH: configs/config.yaml
+      MLFLOW_TRACKING_URI: file:///app/mlruns
+      PYTHONPATH: /app
+    command: >
+      sh -lc "python main.py --config ${CONFIG_PATH}"
+
+  inference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns
+    environment:
+      CONFIG_PATH: configs/config.yaml
+      CHECKPOINT_PATH: ""
+      IMAGE_PATH: ""
+      DEVICE: cpu
+      PYTHONPATH: /app
+    command: >
+      sh -lc "python src/pipelines/inference.py ${IMAGE_PATH} ${CHECKPOINT_PATH} --config ${CONFIG_PATH} --device ${DEVICE}"
+    profiles:
+      - manual
+
+  mlflow-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    volumes:
+      - ./mlruns:/app/mlruns
+    environment:
+      PYTHONPATH: /app
+    command: >
+      sh -lc "mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri /app/mlruns"
+    ports:
+      - "5000:5000"
