@@ -42,11 +42,6 @@ python scripts/update_history.py --summary mlruns/local_artifacts/experiments/<t
 - MLflow experiment: `weather_classification`
 - MLflow run id: `d0290604e3294b7bb99d2f9b1b172899`
 - MLflow page: http://127.0.0.1:5000/#/experiments/202556990899135500/runs/d0290604e3294b7bb99d2f9b1b172899
-- Skipped files report: `-`
-
-### Notes
-
-- Add a short conclusion here after reviewing confusion matrix and class-wise metrics.
 
 ## exp1_hflip_light
 
@@ -62,9 +57,4 @@ python scripts/update_history.py --summary mlruns/local_artifacts/experiments/<t
 - MLflow experiment: `weather_classification`
 - MLflow run id: `d0290604e3294b7bb99d2f9b1b172899`
 - MLflow page: http://127.0.0.1:5000/#/experiments/202556990899135500/runs/d0290604e3294b7bb99d2f9b1b172899
-- Skipped files report: `-`
-
-### Notes
-
-- Add a short conclusion here after reviewing confusion matrix and class-wise metrics.
 
