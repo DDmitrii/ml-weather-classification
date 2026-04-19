@@ -1,0 +1,29 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 32
+
+training:
+  epochs: 12
+  learning_rate: 0.0001
+  optimizer: adam
+  use_scheduler: false
+
+augmentation:
+  horizontal_flip: false
+  rotation_degrees: 0
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.04
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp3_color_jitter
+  tags:
+    project: ml_weather
+    series: augmentation_sweep
+    augmentation: color_jitter

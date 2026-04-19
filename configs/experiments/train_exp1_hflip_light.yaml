@@ -1,0 +1,25 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 32
+
+training:
+  epochs: 2
+  learning_rate: 0.0001
+  optimizer: adam
+  use_scheduler: false
+
+augmentation:
+  horizontal_flip: true
+  rotation_degrees: 0
+  color_jitter: {}
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp1_hflip_light
+  tags:
+    project: ml_weather
+    series: augmentation_sweep
+    augmentation: hflip_light

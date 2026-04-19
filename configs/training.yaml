@@ -1,0 +1,7 @@
+epochs: 10
+learning_rate: 0.0001
+optimizer: adam
+weight_decay: 0.0
+use_scheduler: false
+scheduler_patience: 3
+scheduler_factor: 0.5

@@ -1,0 +1,10 @@
+horizontal_flip: true
+rotation_degrees: 10
+color_jitter:
+  brightness: 0.1
+  contrast: 0.1
+  saturation: 0.1
+  hue: 0.02
+normalize:
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]

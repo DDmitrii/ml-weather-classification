@@ -1,0 +1,13 @@
+data_dir: data/raw/weather_dataset_complete/weather_dataset_complete
+batch_size: 32
+num_workers: 2
+image_size: 224
+class_names:
+  - clear
+  - fog
+  - night
+  - night_fog
+  - night_rain
+  - night_snow
+  - rain
+  - snow

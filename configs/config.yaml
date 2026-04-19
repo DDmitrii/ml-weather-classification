@@ -1,0 +1,12 @@
+project_name: ml_weather
+seed: 42
+save_best_model: true
+
+mlflow:
+  enabled: true
+  tracking_uri: file:./mlruns
+  experiment_name: weather_classification
+  run_name: resnet18_exp1
+  tags:
+    project: ml_weather
+    stage: baseline
