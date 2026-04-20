@@ -1,4 +1,5 @@
 import torch
+import omegaconf
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
     EarlyStopping,
@@ -11,6 +12,13 @@ from omegaconf import DictConfig
 
 from src.data import build_dataloaders, WeatherDataset, get_train_transforms
 from src.model import WeatherClassifier
+
+
+torch.serialization.add_safe_globals([
+    omegaconf.dictconfig.DictConfig,
+    omegaconf.listconfig.ListConfig,
+])
+torch.set_float32_matmul_precision('high')
 
 
 @hydra.main(config_path="../configs", config_name="train", version_base=None)
