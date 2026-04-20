@@ -3,8 +3,11 @@ from typing import Optional, Callable
 
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageFile
 from torch.utils.data import Dataset, DataLoader
+
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class WeatherDataset(Dataset):
