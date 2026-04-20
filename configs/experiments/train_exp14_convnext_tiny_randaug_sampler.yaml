@@ -1,0 +1,54 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 24
+  image_size: 224
+
+model:
+  name: convnext_tiny
+  pretrained: true
+  dropout: 0.25
+
+training:
+  epochs: 10
+  learning_rate: 0.00025
+  optimizer: adamw
+  weight_decay: 0.0001
+  use_scheduler: true
+  label_smoothing: 0.1
+  grad_clip_norm: 1.0
+  class_weights:
+    normalize: true
+    multipliers:
+      night_snow: 2.0
+      for_rain: 1.6
+  sampling:
+    weighted_sampler: true
+
+augmentation:
+  resize_size: 256
+  random_resized_crop:
+    scale: [0.7, 1.0]
+  horizontal_flip: true
+  rotation_degrees: 12
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.04
+  rand_augment:
+    num_ops: 3
+    magnitude: 9
+  random_erasing:
+    p: 0.25
+    scale: [0.02, 0.12]
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp14_convnext_tiny_randaug_sampler
+  tags:
+    project: ml_weather
+    series: hard_classes
+    focus: sampler_plus_randaug

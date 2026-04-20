@@ -1,0 +1,53 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 32
+  image_size: 224
+
+model:
+  name: resnet34
+  pretrained: true
+  dropout: 0.3
+
+training:
+  epochs: 10
+  learning_rate: 0.0002
+  optimizer: adamw
+  weight_decay: 0.0001
+  use_scheduler: true
+  loss: focal
+  focal_gamma: 2.5
+  label_smoothing: 0.05
+  grad_clip_norm: 1.0
+  class_weights:
+    normalize: true
+    multipliers:
+      night_snow: 2.0
+      for_rain: 1.7
+  sampling:
+    weighted_sampler: true
+
+augmentation:
+  resize_size: 256
+  random_resized_crop:
+    scale: [0.75, 1.0]
+  horizontal_flip: true
+  rotation_degrees: 15
+  color_jitter:
+    brightness: 0.25
+    contrast: 0.25
+    saturation: 0.2
+    hue: 0.04
+  gaussian_blur:
+    kernel_size: 3
+    sigma: [0.2, 1.5]
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp11_resnet34_focal_sampler
+  tags:
+    project: ml_weather
+    series: imbalance
+    focus: strong_baseline

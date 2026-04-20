@@ -1,0 +1,50 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 8
+  image_size: 384
+
+model:
+  name: convnext_base
+  pretrained: true
+  dropout: 0.3
+
+training:
+  epochs: 10
+  learning_rate: 0.00015
+  optimizer: adamw
+  weight_decay: 0.0001
+  use_scheduler: true
+  label_smoothing: 0.1
+  grad_clip_norm: 1.0
+  class_weights:
+    normalize: true
+    multipliers:
+      night_snow: 2.0
+      for_rain: 1.6
+      night_fog: 1.4
+
+augmentation:
+  resize_size: 420
+  random_resized_crop:
+    scale: [0.8, 1.0]
+  horizontal_flip: true
+  rotation_degrees: 8
+  color_jitter:
+    brightness: 0.15
+    contrast: 0.2
+    saturation: 0.15
+    hue: 0.02
+  gaussian_blur:
+    kernel_size: 5
+    sigma: [0.2, 1.2]
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp9_convnext_base_384_balanced
+  tags:
+    project: ml_weather
+    series: advanced_models
+    focus: high_resolution

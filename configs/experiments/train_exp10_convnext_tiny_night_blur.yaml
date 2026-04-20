@@ -1,0 +1,52 @@
+project_name: ml_weather
+seed: 42
+
+data:
+  batch_size: 24
+  image_size: 224
+
+model:
+  name: convnext_tiny
+  pretrained: true
+  dropout: 0.25
+
+training:
+  epochs: 10
+  learning_rate: 0.00025
+  optimizer: adamw
+  weight_decay: 0.0001
+  use_scheduler: true
+  label_smoothing: 0.05
+  grad_clip_norm: 1.0
+  class_weights:
+    normalize: true
+    multipliers:
+      night_snow: 2.2
+      night_fog: 1.8
+      for_rain: 1.5
+
+augmentation:
+  resize_size: 256
+  random_resized_crop:
+    scale: [0.75, 1.0]
+  horizontal_flip: true
+  rotation_degrees: 10
+  color_jitter:
+    brightness: 0.35
+    contrast: 0.3
+    saturation: 0.2
+    hue: 0.04
+  gaussian_blur:
+    kernel_size: 5
+    sigma: [0.5, 2.0]
+  random_grayscale:
+    p: 0.08
+
+mlflow:
+  enabled: true
+  experiment_name: weather_classification
+  run_name: exp10_convnext_tiny_night_blur
+  tags:
+    project: ml_weather
+    series: hard_classes
+    focus: night_fog_snow
