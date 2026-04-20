@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.utils.data._utils.collate import default_collate
 from torchvision import datasets
 
@@ -37,14 +37,27 @@ def safe_collate(batch):
     return default_collate(batch)
 
 
-def _build_loader(dataset, batch_size, shuffle, pin_memory, num_workers):
+def _build_loader(dataset, batch_size, shuffle, pin_memory, num_workers, sampler=None):
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle if sampler is None else False,
         pin_memory=pin_memory,
         num_workers=num_workers,
         collate_fn=safe_collate,
+        sampler=sampler,
+    )
+
+
+def _build_weighted_sampler(dataset):
+    targets = torch.tensor(dataset.targets, dtype=torch.long)
+    class_counts = torch.bincount(targets)
+    class_weights = 1.0 / class_counts.float().clamp_min(1.0)
+    sample_weights = class_weights[targets]
+    return WeightedRandomSampler(
+        weights=sample_weights.double(),
+        num_samples=len(sample_weights),
+        replacement=True,
     )
 
 
@@ -54,6 +67,7 @@ def create_dataloaders(
     num_workers=2,
     image_size=224,
     augmentation_config=None,
+    sampling_config=None,
 ):
     """Create train, val, test dataloaders."""
     train_transform = get_transforms(
@@ -84,6 +98,9 @@ def create_dataloaders(
     )
 
     pin_memory = torch.cuda.is_available()
+    sampler = None
+    if sampling_config and sampling_config.get("weighted_sampler", False):
+        sampler = _build_weighted_sampler(train_dataset)
 
     train_loader = _build_loader(
         train_dataset,
@@ -91,6 +108,7 @@ def create_dataloaders(
         shuffle=True,
         pin_memory=pin_memory,
         num_workers=num_workers,
+        sampler=sampler,
     )
     val_loader = _build_loader(
         val_dataset,

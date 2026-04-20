@@ -6,6 +6,7 @@ from pathlib import Path
 import mlflow
 import torch.nn as nn
 import torch.optim as optim
+import torch
 import yaml
 
 from src.data.dataloader import (
@@ -14,6 +15,7 @@ from src.data.dataloader import (
     write_skipped_files_report,
 )
 from src.models.evaluate import evaluate
+from src.models.losses import FocalLoss
 from src.models.model import create_model
 from src.models.train import train
 from src.utils.config import tracking_uri_to_path
@@ -23,26 +25,61 @@ from src.utils.model_io import save_model
 from src.utils.seed import set_seed
 
 
+def _freeze_for_finetuning(model, training_config):
+    fine_tune_config = training_config.get("fine_tune", {})
+    if not fine_tune_config:
+        return
+
+    if not fine_tune_config.get("freeze_backbone", False):
+        return
+
+    for parameter in model.parameters():
+        parameter.requires_grad = False
+
+    default_patterns = ["fc", "classifier", "head"]
+    unfreeze_patterns = fine_tune_config.get("unfreeze_patterns", default_patterns)
+
+    for name, parameter in model.named_parameters():
+        if any(pattern in name for pattern in unfreeze_patterns):
+            parameter.requires_grad = True
+
+
 def _build_optimizer(model, training_config):
     optimizer_name = training_config.get("optimizer", "adam").lower()
     learning_rate = training_config["learning_rate"]
     weight_decay = training_config.get("weight_decay", 0.0)
+    trainable_parameters = [
+        parameter for parameter in model.parameters() if parameter.requires_grad
+    ]
+    if not trainable_parameters:
+        raise ValueError("No trainable parameters available for optimizer setup.")
 
     if optimizer_name == "adam":
-        return optim.Adam(
-            model.parameters(),
+        optimizer = optim.Adam(
+            lr=learning_rate,
+            params=trainable_parameters,
+            weight_decay=weight_decay,
+        )
+    elif optimizer_name == "adamw":
+        optimizer = optim.AdamW(
+            params=trainable_parameters,
             lr=learning_rate,
             weight_decay=weight_decay,
         )
-    if optimizer_name == "sgd":
-        return optim.SGD(
-            model.parameters(),
+    elif optimizer_name == "sgd":
+        optimizer = optim.SGD(
+            params=trainable_parameters,
             lr=learning_rate,
             momentum=training_config.get("momentum", 0.9),
             weight_decay=weight_decay,
         )
+    else:
+        raise ValueError(f"Unsupported optimizer: {training_config['optimizer']}")
 
-    raise ValueError(f"Unsupported optimizer: {training_config['optimizer']}")
+    grad_clip_norm = training_config.get("grad_clip_norm")
+    if grad_clip_norm is not None:
+        optimizer._grad_clip_norm = float(grad_clip_norm)
+    return optimizer
 
 
 def _create_experiment_dir(config):
@@ -53,6 +90,53 @@ def _create_experiment_dir(config):
     experiment_dir = output_dir / "experiments" / f"{timestamp}_{run_name}"
     experiment_dir.mkdir(parents=True, exist_ok=True)
     return experiment_dir
+
+
+def _build_class_weights(train_dataset, classes, training_config, device):
+    weights_config = training_config.get("class_weights")
+    if not weights_config:
+        return None
+
+    targets = torch.tensor(train_dataset.targets, dtype=torch.long)
+    class_counts = torch.bincount(targets, minlength=len(classes)).float().clamp_min(1.0)
+    weights = class_counts.sum() / class_counts
+
+    if isinstance(weights_config, dict):
+        normalize = weights_config.get("normalize", True)
+        multipliers = weights_config.get("multipliers", {})
+    else:
+        normalize = True
+        multipliers = {}
+
+    if normalize:
+        weights = weights / weights.mean()
+
+    class_to_index = {name: idx for idx, name in enumerate(classes)}
+    for class_name, factor in multipliers.items():
+        if class_name in class_to_index:
+            weights[class_to_index[class_name]] *= float(factor)
+
+    return weights.to(device)
+
+
+def _build_criterion(training_config, class_weights):
+    loss_name = training_config.get("loss", "cross_entropy").lower()
+    label_smoothing = training_config.get("label_smoothing", 0.0)
+
+    if loss_name == "cross_entropy":
+        return nn.CrossEntropyLoss(
+            weight=class_weights,
+            label_smoothing=label_smoothing,
+        )
+
+    if loss_name == "focal":
+        return FocalLoss(
+            gamma=training_config.get("focal_gamma", 2.0),
+            alpha=class_weights,
+            label_smoothing=label_smoothing,
+        )
+
+    raise ValueError(f"Unsupported loss: {training_config.get('loss')}")
 
 
 def run_training_pipeline(config, use_mlflow=True):
@@ -78,6 +162,7 @@ def run_training_pipeline(config, use_mlflow=True):
         num_workers=data_config.get("num_workers", 2),
         image_size=data_config.get("image_size", 224),
         augmentation_config=config.get("augmentation", {}),
+        sampling_config=training_config.get("sampling", {}),
     )
 
     print("\nDataset info:")
@@ -92,9 +177,15 @@ def run_training_pipeline(config, use_mlflow=True):
         num_classes=len(classes),
         model_name=model_config.get("name", "resnet18"),
         pretrained=model_config.get("pretrained", True),
+        dropout=model_config.get("dropout", 0.0),
     ).to(device)
+    _freeze_for_finetuning(model, training_config)
+    trainable_params = sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+    total_params = sum(parameter.numel() for parameter in model.parameters())
+    print(f"  Trainable params: {trainable_params:,} / {total_params:,}")
 
-    criterion = nn.CrossEntropyLoss()
+    class_weights = _build_class_weights(train_loader.dataset, classes, training_config, device)
+    criterion = _build_criterion(training_config, class_weights)
     optimizer = _build_optimizer(model, training_config)
     scheduler = None
     if training_config.get("use_scheduler", False):

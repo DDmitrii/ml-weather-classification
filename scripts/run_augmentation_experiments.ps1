@@ -21,7 +21,15 @@ $experiments = @(
     @{ Config = "configs/experiments/train_exp3_color_jitter.yaml"; RunName = "exp3_color_jitter" },
     @{ Config = "configs/experiments/train_exp4_flip_rotation.yaml"; RunName = "exp4_flip_rotation" },
     @{ Config = "configs/experiments/train_exp5_flip_color.yaml"; RunName = "exp5_flip_color" },
-    @{ Config = "configs/experiments/train_exp6_strong_aug.yaml"; RunName = "exp6_strong_aug" }
+    @{ Config = "configs/experiments/train_exp6_strong_aug.yaml"; RunName = "exp6_strong_aug" },
+    @{ Config = "configs/experiments/train_exp7_convnext_tiny_randaug_ls.yaml"; RunName = "exp7_convnext_tiny_randaug_ls" },
+    @{ Config = "configs/experiments/train_exp8_maxvit_t_focal_weighted.yaml"; RunName = "exp8_maxvit_t_focal_weighted" },
+    @{ Config = "configs/experiments/train_exp9_convnext_base_384_balanced.yaml"; RunName = "exp9_convnext_base_384_balanced" },
+    @{ Config = "configs/experiments/train_exp10_convnext_tiny_night_blur.yaml"; RunName = "exp10_convnext_tiny_night_blur" },
+    @{ Config = "configs/experiments/train_exp11_resnet34_focal_sampler.yaml"; RunName = "exp11_resnet34_focal_sampler" },
+    @{ Config = "configs/experiments/train_exp12_convnext_tiny_head_only.yaml"; RunName = "exp12_convnext_tiny_head_only" },
+    @{ Config = "configs/experiments/train_exp13_maxvit_t_384_focal.yaml"; RunName = "exp13_maxvit_t_384_focal" },
+    @{ Config = "configs/experiments/train_exp14_convnext_tiny_randaug_sampler.yaml"; RunName = "exp14_convnext_tiny_randaug_sampler" }
 )
 
 foreach ($experiment in $experiments) {

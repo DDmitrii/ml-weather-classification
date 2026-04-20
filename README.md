@@ -44,6 +44,18 @@ python main.py --config configs/experiments/train.yaml
 powershell -ExecutionPolicy Bypass -File scripts/run_augmentation_experiments.ps1
 ```
 
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run_experiment_queue.ps1
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run_experiment_queue.ps1 -Configs configs/experiments/train_exp7_convnext_tiny_randaug_ls.yaml,configs/experiments/train_exp8_maxvit_t_focal_weighted.yaml
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run_experiment_queue.ps1 -UpdateHistory
+```
+
 После запуска результаты лежат в:
 
 - `mlruns/<experiment_id>/<run_id>/...` — внутренние файлы MLflow

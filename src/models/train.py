@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import mlflow
 import mlflow.pytorch
+import torch
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
@@ -29,6 +30,11 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch):
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
+        grad_clip_norm = getattr(optimizer, "_grad_clip_norm", None)
+        if grad_clip_norm is not None:
+            model_parameters = [param for param in model.parameters() if param.grad is not None]
+            if model_parameters:
+                torch.nn.utils.clip_grad_norm_(model_parameters, max_norm=grad_clip_norm)
         optimizer.step()
 
         running_loss += loss.item() * inputs.size(0)

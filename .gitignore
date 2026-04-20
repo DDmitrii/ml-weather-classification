@@ -1,0 +1,69 @@
+# IDE и редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Файлы окружения
+.env
+.env.local
+.env.*.local
+
+# Зависимости
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+
+# Сборка и билды
+dist/
+build/
+out/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Артефакты тестов
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+
+# Временные файлы
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# Секреты и ключи
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+secrets.yml
+
+# Файлы ОС
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# Бекапы
+*.bak
+*.backup
+*.old
+.dvc/
+.data/
