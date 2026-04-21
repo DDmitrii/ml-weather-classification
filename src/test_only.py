@@ -1,25 +1,62 @@
-﻿import torch
-_original_load = torch.load
-def _patched_load(*args, **kwargs):
-    kwargs['weights_only'] = False
-    return _original_load(*args, **kwargs)
-torch.load = _patched_load
-
+﻿# test_only.py
+import torch
+import typing
+import omegaconf
 import pytorch_lightning as pl
+from hydra import initialize, compose
+from src.data import build_dataloaders, WeatherDataset, get_train_transforms
 from src.model import WeatherClassifier
-from src.data import build_dataloaders
-import hydra
-from omegaconf import DictConfig
 
-@hydra.main(config_path="../configs", config_name="train", version_base=None)
-def main(cfg: DictConfig) -> None:
-    pl.seed_everything(cfg.seed)
+torch.set_float32_matmul_precision('high')
+
+torch.serialization.add_safe_globals([
+    omegaconf.dictconfig.DictConfig,
+    omegaconf.listconfig.ListConfig,
+    omegaconf.base.ContainerMetadata,
+    typing.Any,
+])
+
+if __name__ == '__main__':
+    with initialize(config_path="../configs", version_base=None):
+        cfg = compose(config_name="train")
+
+    train_ds = WeatherDataset(
+        root=cfg.data.train_dir,
+        class_names=list(cfg.data.class_names),
+        transform=get_train_transforms(cfg.data.img_size),
+    )
+    class_weights = train_ds.get_class_weights()
+
     _, _, test_loader = build_dataloaders(cfg)
-    ckpt = "checkpoints/epoch=29-val_f1=0.9756.ckpt"
-    model = WeatherClassifier.load_from_checkpoint(ckpt, cfg=cfg, strict=False)
-    trainer = pl.Trainer(precision=cfg.training.precision, logger=False)
-    results = trainer.test(model, test_loader)
-    print("Test results:", results)
 
-if __name__ == "__main__":
-    main()
+    ckpt = "checkpoints/epoch=17-val_f1=0.9790.ckpt"
+    model = WeatherClassifier.load_from_checkpoint(
+        ckpt,
+        cfg=cfg,
+        class_weights=class_weights,
+        weights_only=False,
+    )
+
+    trainer = pl.Trainer(logger=False)
+    trainer.test(model, test_loader)
+
+    from sklearn.metrics import classification_report
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    model.eval()
+    all_preds, all_labels = [], []
+
+    with torch.no_grad():
+        for batch in test_loader:
+            x, y = batch
+            x = x.to(device)
+            preds = model(x).argmax(dim=1)
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(y.tolist())
+
+    print("\n📊 Per-class report:")
+    print(classification_report(
+        all_labels, all_preds,
+        target_names=list(cfg.data.class_names)
+    ))
