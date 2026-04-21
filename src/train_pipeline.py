@@ -17,7 +17,9 @@ from src.model import WeatherClassifier
 torch.serialization.add_safe_globals([
     omegaconf.dictconfig.DictConfig,
     omegaconf.listconfig.ListConfig,
+    omegaconf.base.ContainerMetadata,
 ])
+
 torch.set_float32_matmul_precision('high')
 
 
@@ -89,6 +91,11 @@ def main(cfg: DictConfig) -> None:
     trainer.test(model, test_loader, ckpt_path="best")
 
     print(f"\n✅ Готово! Лучший чекпоинт: {trainer.checkpoint_callback.best_model_path}")
+
+
+    from mlflow import end_run
+
+    end_run()
 
 
 if __name__ == "__main__":

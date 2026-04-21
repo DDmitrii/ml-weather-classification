@@ -60,6 +60,7 @@ class WeatherDataset(Dataset):
 
 def build_dataloaders(cfg) -> tuple[DataLoader, DataLoader, DataLoader]:
     from src.data.transforms import get_train_transforms, get_val_transforms
+    from torch.utils.data import WeightedRandomSampler
 
     train_ds = WeatherDataset(
         root=cfg.data.train_dir,
@@ -77,13 +78,24 @@ def build_dataloaders(cfg) -> tuple[DataLoader, DataLoader, DataLoader]:
         transform=get_val_transforms(cfg.data.img_size),
     )
 
+    class_counts = [0] * len(train_ds.class_names)
+    for _, label in train_ds.samples:
+        class_counts[label] += 1
+
+    sample_weights = [1.0 / class_counts[label] for _, label in train_ds.samples]
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+    )
+
     loader_kwargs = dict(
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
         pin_memory=True,
     )
     return (
-        DataLoader(train_ds, shuffle=True,  **loader_kwargs),
+        DataLoader(train_ds, sampler=sampler, **loader_kwargs),
         DataLoader(val_ds,   shuffle=False, **loader_kwargs),
         DataLoader(test_ds,  shuffle=False, **loader_kwargs),
     )
