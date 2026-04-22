@@ -1,0 +1,5 @@
+model:
+  name: convnext_tiny
+
+mlflow:
+  experiment_name: "phase1-v2-convnext_tiny"
