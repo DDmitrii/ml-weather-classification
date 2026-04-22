@@ -27,11 +27,11 @@ model:
   dropout: 0.3
 
 training:
-  max_epochs: 1
+  max_epochs: 30
   lr: 1.0e-4
   weight_decay: 1.0e-4
   precision: "16-mixed"
-  early_stopping_patience: 7
+  early_stopping_patience: 8
   scheduler: cosine
   warmup_epochs: 2
   use_class_weights: true

@@ -3,6 +3,7 @@ os.environ["PL_WEIGHTS_ONLY_LOAD"] = "0"
 
 
 import torch
+import mlflow
 import omegaconf
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
@@ -54,10 +55,21 @@ def main(cfg: DictConfig) -> None:
     model = WeatherClassifier(cfg, class_weights=class_weights)
 
     # ── Логгер MLflow ─────────────────────────────────────────
+    mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
+
+    # Получаем или создаём эксперимент
+    experiment = mlflow.get_experiment_by_name(cfg.mlflow.experiment_name)
+    if experiment is None:
+        experiment_id = mlflow.create_experiment(cfg.mlflow.experiment_name)
+    else:
+        experiment_id = experiment.experiment_id
+
     mlf_logger = MLFlowLogger(
         experiment_name=cfg.mlflow.experiment_name,
         tracking_uri=cfg.mlflow.tracking_uri,
+        run_name=f"{cfg.model.name}-run",
     )
+    mlf_logger._experiment_id = experiment_id
 
     # ── Callbacks ─────────────────────────────────────────────
     callbacks = [
