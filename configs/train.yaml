@@ -27,14 +27,13 @@ model:
   dropout: 0.3
 
 training:
-  max_epochs: 30
+  max_epochs: 1
   lr: 1.0e-4
   weight_decay: 1.0e-4
   precision: "16-mixed"
   early_stopping_patience: 7
   scheduler: cosine
   warmup_epochs: 2
-  # Веса классов для борьбы с дисбалансом (1 / count, нормализовано)
   use_class_weights: true
 
 checkpoints:
@@ -45,7 +44,7 @@ checkpoints:
   filename: "{epoch:02d}-{val_f1:.4f}"
 
 mlflow:
-  experiment_name: weather-clf
+  experiment_name: "weather-clf-v2-aug"
   tracking_uri: sqlite:///mlflow.db
   log_model: true
 
