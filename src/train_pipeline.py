@@ -1,3 +1,7 @@
+import os
+os.environ["PL_WEIGHTS_ONLY_LOAD"] = "0"
+
+
 import torch
 import omegaconf
 import pytorch_lightning as pl
@@ -9,6 +13,7 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import MLFlowLogger
 import hydra
 from omegaconf import DictConfig
+import typing
 
 from src.data import build_dataloaders, WeatherDataset, get_train_transforms
 from src.model import WeatherClassifier
@@ -18,6 +23,7 @@ torch.serialization.add_safe_globals([
     omegaconf.dictconfig.DictConfig,
     omegaconf.listconfig.ListConfig,
     omegaconf.base.ContainerMetadata,
+    typing.Any,
 ])
 
 torch.set_float32_matmul_precision('high')
