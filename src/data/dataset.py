@@ -6,8 +6,36 @@ import torch
 from PIL import Image, ImageFile
 from torch.utils.data import Dataset, DataLoader
 
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+# Head 1: Day=0 / Night=1
+DAY_NIGHT_MAP = {
+    "clear":      0, "fog":        0, "for_rain":   0,
+    "rain":       0, "snow":       0, "night":      1,
+    "night_fog":  1, "night_rain": 1, "night_snow": 1,
+}
+
+# Head 2: тип погоды (5 классов)
+WEATHER_TYPE_MAP = {
+    "clear":      0, "fog":        1, "for_rain":   2,
+    "rain":       3, "snow":       4, "night":      0,
+    "night_fog":  1, "night_rain": 3, "night_snow": 4,
+}
+
+# Обратный маппинг: (day_night, weather_type) → финальный индекс
+# Порядок классов совпадает с cfg.data.class_names
+COMBO_TO_FINAL = {
+    (0, 0): 0,  # clear
+    (0, 1): 1,  # fog
+    (0, 2): 2,  # for_rain
+    (1, 2): 2,  # night + for_rain → for_rain
+    (0, 3): 7,  # rain
+    (0, 4): 8,  # snow
+    (1, 0): 3,  # night
+    (1, 1): 4,  # night_fog
+    (1, 3): 5,  # night_rain
+    (1, 4): 6,  # night_snow
+}
 
 
 class WeatherDataset(Dataset):
@@ -39,18 +67,20 @@ class WeatherDataset(Dataset):
 
     def __getitem__(self, idx: int):
         img_path, label = self.samples[idx]
+        class_name = self.class_names[label]
         img = np.array(Image.open(img_path).convert("RGB"))
         if self.transform:
             img = self.transform(image=img)["image"]
-        return img, label
+        day_night    = DAY_NIGHT_MAP[class_name]
+        weather_type = WEATHER_TYPE_MAP[class_name]
+        return img, label, day_night, weather_type
 
     def get_class_weights(self) -> torch.Tensor:
-        """Вес каждого класса = 1 / count. Для WeightedCrossEntropy."""
         from collections import Counter
         counts = Counter(label for _, label in self.samples)
         weights = [1.0 / counts[i] for i in range(len(self.class_names))]
         weights = torch.tensor(weights, dtype=torch.float32)
-        return weights / weights.sum() * len(self.class_names)  # нормализация
+        return weights / weights.sum() * len(self.class_names)
 
     def class_distribution(self) -> dict[str, int]:
         from collections import Counter

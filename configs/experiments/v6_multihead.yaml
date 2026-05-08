@@ -1,0 +1,10 @@
+model:
+  name: convnext_tiny
+
+training:
+  loss: multihead
+  multihead: true
+  multihead_lambda: 1.0
+
+mlflow:
+  experiment_name: "phase2-v6-convnext-multihead"
