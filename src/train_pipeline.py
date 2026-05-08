@@ -17,7 +17,7 @@ from omegaconf import DictConfig
 import typing
 
 from src.data import build_dataloaders, WeatherDataset, get_train_transforms
-from src.model import WeatherClassifier
+from src.model import WeatherClassifierMultiHead, WeatherClassifier
 
 
 torch.serialization.add_safe_globals([
@@ -52,7 +52,9 @@ def main(cfg: DictConfig) -> None:
 
     # ── Модель ────────────────────────────────────────────────
     print(f"\n🧠 Модель: {cfg.model.name}")
-    model = WeatherClassifier(cfg, class_weights=class_weights)
+    use_multihead = cfg.training.get("multihead", False)
+    model = WeatherClassifierMultiHead(cfg, class_weights=class_weights) \
+        if use_multihead else WeatherClassifier(cfg, class_weights=class_weights)
 
     # ── Логгер MLflow ─────────────────────────────────────────
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
