@@ -1,5 +1,0 @@
-model:
-  name: mobilenetv3_large_100
-
-mlflow:
-  experiment_name: "phase1-v4-mobilenet"

@@ -1,0 +1,14 @@
+# @package _global_
+
+model:
+  name: convnext_tiny
+  pretrained: true
+  freeze_epochs: 5
+
+training:
+  max_epochs: 25
+  multihead: false
+
+mlflow:
+  experiment_name: "baseline-convnext-tiny"
+  run_name: "baseline-convnext-tiny-v1"

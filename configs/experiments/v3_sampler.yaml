@@ -1,2 +1,0 @@
-mlflow:
-  experiment_name: "weather-clf-v3-sampler"

@@ -1,5 +1,0 @@
-model:
-  name: efficientnet_b0
-
-mlflow:
-  experiment_name: "phase1-v1-efficientnet_b0"

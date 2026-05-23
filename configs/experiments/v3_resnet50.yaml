@@ -1,5 +1,0 @@
-model:
-  name: resnet50
-
-mlflow:
-  experiment_name: "phase1-v3-resnet50"
