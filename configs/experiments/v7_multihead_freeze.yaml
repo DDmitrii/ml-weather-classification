@@ -9,4 +9,4 @@ training:
   max_epochs: 20
 
 mlflow:
-  experiment_name: "phase2-v7-multihead-freeze"
+  experiment_name: "dataset-v2-multihead-freeze"
