@@ -1,5 +1,0 @@
-model:
-  name: convnext_tiny
-
-mlflow:
-  experiment_name: "dataset-v2-convnext_tiny"

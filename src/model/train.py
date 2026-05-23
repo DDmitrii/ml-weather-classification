@@ -250,7 +250,27 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         pred_wt = logits_wt.argmax(dim=1)   # (B,)
         return self.combo_table[pred_dn, pred_wt]
 
-    # ── Train ─────────────────────────────────────────────────────────
+    def predict_probs(self, logits_dn, logits_wt) -> torch.Tensor:
+        """
+        Возвращает вероятности по 9 финальным классам через
+        outer product softmax двух хедов.
+        prob[final] = sum of p_dn[dn] * p_wt[wt] для всех (dn,wt)->final
+        """
+        p_dn = torch.softmax(logits_dn, dim=1)  # (B, 2)
+        p_wt = torch.softmax(logits_wt, dim=1)  # (B, 5)
+
+        # outer product: (B, 2, 5)
+        joint = torch.einsum("bi,bj->bij", p_dn, p_wt)
+
+        # собираем 9 финальных классов
+        B = logits_dn.shape[0]
+        probs = torch.zeros(B, len(self.class_names), device=logits_dn.device)
+        for (dn, wt), final in COMBO_TO_FINAL.items():
+            probs[:, final] += joint[:, dn, wt]
+
+        return probs
+
+        # ── Train ─────────────────────────────────────────────────────────
     def training_step(self, batch, batch_idx):
         x, y, y_dn, y_wt = batch
         logits_dn, logits_wt = self(x)

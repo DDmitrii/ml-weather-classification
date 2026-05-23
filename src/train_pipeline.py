@@ -14,6 +14,7 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import MLFlowLogger
 import hydra
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 import typing
 
 from src.data import build_dataloaders, WeatherDataset, get_train_transforms
@@ -60,6 +61,9 @@ def main(cfg: DictConfig) -> None:
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
 
     # Получаем или создаём эксперимент
+    experiment_name = OmegaConf.select(cfg, "mlflow.experiment_name", default="default-experiment")
+    run_name = OmegaConf.select(cfg, "mlflow.run_name", default=f"{cfg.model.name}-run")
+
     experiment = mlflow.get_experiment_by_name(cfg.mlflow.experiment_name)
     if experiment is None:
         experiment_id = mlflow.create_experiment(cfg.mlflow.experiment_name)
@@ -69,8 +73,9 @@ def main(cfg: DictConfig) -> None:
     mlf_logger = MLFlowLogger(
         experiment_name=cfg.mlflow.experiment_name,
         tracking_uri=cfg.mlflow.tracking_uri,
-        run_name=f"{cfg.model.name}-run",
+        run_name=cfg.mlflow.run_name,  # ← было f"{cfg.model.name}-run"
     )
+
     mlf_logger._experiment_id = experiment_id
 
     # ── Callbacks ─────────────────────────────────────────────
@@ -112,10 +117,7 @@ def main(cfg: DictConfig) -> None:
 
     print(f"\n✅ Готово! Лучший чекпоинт: {trainer.checkpoint_callback.best_model_path}")
 
-
-    from mlflow import end_run
-
-    end_run()
+    mlflow.end_run()
 
 
 if __name__ == "__main__":
