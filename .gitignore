@@ -21,3 +21,7 @@ __pycache__/
 .venv/
 *.ckpt
 mlruns/
+
+exports/*.onnx
+exports/*.onnx.data
+exports/*.pt
