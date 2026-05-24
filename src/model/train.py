@@ -200,7 +200,8 @@ class WeatherClassifierMultiHead(pl.LightningModule):
 
         # ── Loss ──────────────────────────────────────────────────────
         lam = cfg.training.get("multihead_lambda", 1.0)
-        self.criterion = MultiHeadLoss(lam=lam)
+        gamma = cfg.training.get("focal_gamma", 0.0)
+        self.criterion = MultiHeadLoss(lam=lam, gamma=gamma)
 
         # ── Метрики (по финальным 9 классам) ─────────────────────────
         mkw = dict(task="multiclass", num_classes=num_classes)

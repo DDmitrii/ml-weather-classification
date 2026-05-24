@@ -17,3 +17,10 @@ Accuracy: 0.9407 \
 F1 score: 0.9044 \
 dataset v2 (9 classes) \
 Comment:
+
+**Focal loss + Multihead** \
+Baseline model: ConvNeXt tiny \
+Accuracy: 0.9471 \
+F1 score: 0.9167 \
+dataset v2 (9 classes) \
+Comment:
