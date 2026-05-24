@@ -1,0 +1,15 @@
+# @package _global_
+
+model:
+  name: convnext_small
+  pretrained: true
+  freeze_epochs: 5
+
+training:
+  max_epochs: 30
+  multihead: true
+  focal_gamma: 2.0
+
+mlflow:
+  experiment_name: "focal-multihead-convnext-small"
+  run_name: "focal-multihead-convnext-small-v1"
