@@ -55,41 +55,45 @@ class DistillationLoss(nn.Module):
         return total, hard_loss, soft_loss
 
 
-# ── Teacher: загружаем обученный ConvNeXt Tiny ─────────────────────
 def load_teacher(cfg, device: torch.device) -> nn.Module:
-    CKPT_PATH = "checkpoints/epoch=29-val_f1=0.9856.ckpt"
+    """Загружает WeatherClassifierMultiHead и оборачивает в 9-классовый прокси."""
+    import typing, omegaconf
+    from src.data import WeatherDataset, get_train_transforms
+    from src.model.train import WeatherClassifierMultiHead
 
-    checkpoint = torch.load(CKPT_PATH, map_location=device, weights_only=False)
+    CKPT_PATH = "checkpoints/epoch=17-val_f1=0.9921.ckpt"
 
-    # Lightning хранит веса в "state_dict"
-    state = checkpoint["state_dict"]
-
-    teacher = timm.create_model(
-        "convnext_tiny",
-        pretrained=False,
-        num_classes=len(cfg.data.class_names),
+    train_ds = WeatherDataset(
+        root=cfg.data.train_dir,
+        class_names=list(cfg.data.class_names),
+        transform=get_train_transforms(224),
     )
+    class_weights = train_ds.get_class_weights()
 
-    # Lightning добавляет префикс "model." → убираем
-    clean_state = {
-        k.replace("model.", "", 1) if k.startswith("model.") else k: v
-        for k, v in state.items()
-    }
-
-    # Оставляем только ключи самой модели (без head-ов multihead)
-    model_keys = set(teacher.state_dict().keys())
-    filtered = {k: v for k, v in clean_state.items() if k in model_keys}
-
-    missing, unexpected = teacher.load_state_dict(filtered, strict=False)
-    if missing:
-        print(f"⚠️  Missing keys: {missing[:5]}")
-    if unexpected:
-        print(f"⚠️  Unexpected keys: {unexpected[:5]}")
-
-    teacher.eval()
-    for p in teacher.parameters():
+    pl_model = WeatherClassifierMultiHead.load_from_checkpoint(
+        CKPT_PATH,
+        cfg=cfg,
+        class_weights=class_weights,
+        weights_only=False,
+    )
+    pl_model.eval().to(device)
+    for p in pl_model.parameters():
         p.requires_grad = False
-    return teacher.to(device)
+
+    # Обёртка: возвращает log-logits размера (B, 9) для дистилляции
+    class TeacherProxy(nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, x):
+            logits_dn, logits_wt = self.model(x)
+            # predict_probs → (B, 9) вероятности через outer product
+            probs = self.model.predict_probs(logits_dn, logits_wt)
+            # Возвращаем log-odds (logits) для KL-loss
+            return torch.log(probs + 1e-8)
+
+    return TeacherProxy(pl_model).to(device)
 
 
 # ── Student: MobileNetV3-Small ─────────────────────────────────────
@@ -115,23 +119,27 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device) -> floa
     return correct / total
 
 
-# ── Train loop ─────────────────────────────────────────────────────
-@hydra.main(config_path="../configs", config_name="train", version_base=None)
-def main(cfg: DictConfig):
+def main():
+    from hydra import initialize, compose
+
+    with initialize(config_path="../configs", version_base=None):
+        cfg = compose(
+            config_name="train",
+            overrides=["experiments=focal_loss_multihead"],
+        )
+
     from src.data.dataset import WeatherDataset, build_dataloaders
-    from src.data.transforms import get_val_transforms
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"🖥️  Device: {device}")
 
-    # Данные
     train_loader, val_loader, _ = build_dataloaders(cfg)
 
-    # Модели
     print("📦 Загружаю teacher (ConvNeXt Tiny)...")
     teacher = load_teacher(cfg, device)
 
     print("🏗️  Создаю student (MobileNetV3-Small)...")
+
     student = build_student(len(cfg.data.class_names)).to(device)
 
     total_params = sum(p.numel() for p in student.parameters()) / 1e6
