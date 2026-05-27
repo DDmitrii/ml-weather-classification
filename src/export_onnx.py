@@ -9,7 +9,7 @@ from pathlib import Path
 from hydra import initialize, compose
 
 from src.data import WeatherDataset, get_train_transforms
-from src.model.train import WeatherClassifier, WeatherClassifierMultiHead
+from src.model.train import WeatherClassifierMultiHead
 
 torch.set_float32_matmul_precision('high')
 torch.serialization.add_safe_globals([

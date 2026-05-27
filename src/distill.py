@@ -1,12 +1,9 @@
-# src/distill.py
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
-import hydra
 import omegaconf
 import typing
-from omegaconf import DictConfig
 from pathlib import Path
 from torch.utils.data import DataLoader
 
@@ -17,9 +14,8 @@ torch.serialization.add_safe_globals([
     typing.Any,
 ])
 
-# ── Гиперпараметры дистилляции ─────────────────────────────────────
-TEMPERATURE   = 4.0    # сглаживание soft labels
-ALPHA         = 0.7    # вес KL-loss (soft), (1-alpha) = CE-loss (hard)
+TEMPERATURE   = 4.0
+ALPHA         = 0.7
 EPOCHS        = 40
 LR            = 3e-4
 WEIGHT_DECAY  = 1e-4
@@ -37,18 +33,15 @@ class DistillationLoss(nn.Module):
 
     def forward(
         self,
-        student_logits: torch.Tensor,  # (B, C)
-        teacher_logits: torch.Tensor,  # (B, C)
-        labels: torch.Tensor,          # (B,)
+        student_logits: torch.Tensor,
+        teacher_logits: torch.Tensor,
+        labels: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        # Hard loss: обычная кросс-энтропия
         hard_loss = self.ce(student_logits, labels)
 
-        # Soft loss: KL-дивергенция между сглаженными распределениями
         soft_student = F.log_softmax(student_logits / self.T, dim=-1)
         soft_teacher = F.softmax(teacher_logits   / self.T, dim=-1)
         kl_loss = F.kl_div(soft_student, soft_teacher, reduction="batchmean")
-        # Масштабируем T² согласно Hinton et al. (2015)
         soft_loss = kl_loss * (self.T ** 2)
 
         total = self.alpha * soft_loss + (1.0 - self.alpha) * hard_loss
@@ -57,7 +50,6 @@ class DistillationLoss(nn.Module):
 
 def load_teacher(cfg, device: torch.device) -> nn.Module:
     """Загружает WeatherClassifierMultiHead и оборачивает в 9-классовый прокси."""
-    import typing, omegaconf
     from src.data import WeatherDataset, get_train_transforms
     from src.model.train import WeatherClassifierMultiHead
 
@@ -80,7 +72,6 @@ def load_teacher(cfg, device: torch.device) -> nn.Module:
     for p in pl_model.parameters():
         p.requires_grad = False
 
-    # Обёртка: возвращает log-logits размера (B, 9) для дистилляции
     class TeacherProxy(nn.Module):
         def __init__(self, model):
             super().__init__()
@@ -88,25 +79,21 @@ def load_teacher(cfg, device: torch.device) -> nn.Module:
 
         def forward(self, x):
             logits_dn, logits_wt = self.model(x)
-            # predict_probs → (B, 9) вероятности через outer product
             probs = self.model.predict_probs(logits_dn, logits_wt)
-            # Возвращаем log-odds (logits) для KL-loss
             return torch.log(probs + 1e-8)
 
     return TeacherProxy(pl_model).to(device)
 
 
-# ── Student: MobileNetV3-Small ─────────────────────────────────────
 def build_student(num_classes: int) -> nn.Module:
     student = timm.create_model(
         "mobilenetv3_small_100",
-        pretrained=True,       # ImageNet-pretrained backbone
+        pretrained=True,
         num_classes=num_classes,
     )
     return student
 
 
-# ── Eval ───────────────────────────────────────────────────────────
 @torch.no_grad()
 def evaluate(model: nn.Module, loader: DataLoader, device: torch.device) -> float:
     model.eval()
@@ -128,24 +115,23 @@ def main():
             overrides=["experiments=focal_loss_multihead"],
         )
 
-    from src.data.dataset import WeatherDataset, build_dataloaders
+    from src.data.dataset import build_dataloaders
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🖥️  Device: {device}")
+    print(f"🖥Device: {device}")
 
     train_loader, val_loader, _ = build_dataloaders(cfg)
 
-    print("📦 Загружаю teacher (ConvNeXt Tiny)...")
+    print("Загружаю teacher (ConvNeXt Tiny)...")
     teacher = load_teacher(cfg, device)
 
-    print("🏗️  Создаю student (MobileNetV3-Small)...")
+    print("Создаю student (MobileNetV3-Small)...")
 
     student = build_student(len(cfg.data.class_names)).to(device)
 
     total_params = sum(p.numel() for p in student.parameters()) / 1e6
     print(f"   Параметры student: {total_params:.1f}M")
 
-    # Оптимизатор + scheduler
     optimizer = torch.optim.AdamW(
         student.parameters(), lr=LR, weight_decay=WEIGHT_DECAY
     )
@@ -159,7 +145,7 @@ def main():
     best_acc   = 0.0
     best_epoch = 0
 
-    print(f"\n🚀 Начинаю дистилляцию: {EPOCHS} эпох, T={TEMPERATURE}, α={ALPHA}\n")
+    print(f"\nНачинаю дистилляцию: {EPOCHS} эпох, T={TEMPERATURE}, α={ALPHA}\n")
 
     for epoch in range(1, EPOCHS + 1):
         student.train()
@@ -216,10 +202,10 @@ def main():
             }, SAVE_PATH)
             print(f"   💾 Сохранён лучший checkpoint (val_acc={val_acc:.4f})")
 
-    print(f"\n✅ Дистилляция завершена!")
+    print(f"\nДистилляция завершена!")
     print(f"   Лучшая val accuracy : {best_acc:.4f} (epoch {best_epoch})")
     print(f"   Checkpoint          : {SAVE_PATH}")
-    print(f"\n📊 Сравнение:")
+    print(f"\nСравнение:")
     print(f"   Teacher (ConvNeXt Tiny)   : 99.08% acc, ~106 MB fp32")
     print(f"   Student (MobileNetV3-Small): {best_acc:.2%} acc")
 

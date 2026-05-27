@@ -34,14 +34,11 @@ torch.set_float32_matmul_precision('high')
 @hydra.main(config_path="../configs", config_name="train", version_base=None)
 def main(cfg: DictConfig) -> None:
 
-    # ── Воспроизводимость ─────────────────────────────────────
     pl.seed_everything(cfg.seed, workers=True)
 
-    # ── Данные ───────────────────────────────────────────────
-    print("📂 Загружаю данные...")
+    print("Загружаю данные...")
     train_loader, val_loader, test_loader = build_dataloaders(cfg)
 
-    # Веса классов для loss
     train_ds = WeatherDataset(
         root=cfg.data.train_dir,
         class_names=list(cfg.data.class_names),
@@ -52,15 +49,13 @@ def main(cfg: DictConfig) -> None:
     print(f"   Веса классов: {[round(w, 3) for w in class_weights.tolist()]}")
 
     # ── Модель ────────────────────────────────────────────────
-    print(f"\n🧠 Модель: {cfg.model.name}")
+    print(f"\n Модель: {cfg.model.name}")
     use_multihead = cfg.training.get("multihead", False)
     model = WeatherClassifierMultiHead(cfg, class_weights=class_weights) \
         if use_multihead else WeatherClassifier(cfg, class_weights=class_weights)
 
-    # ── Логгер MLflow ─────────────────────────────────────────
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
 
-    # Получаем или создаём эксперимент
     experiment_name = OmegaConf.select(cfg, "mlflow.experiment_name", default="default-experiment")
     run_name = OmegaConf.select(cfg, "mlflow.run_name", default=f"{cfg.model.name}-run")
 
@@ -73,12 +68,11 @@ def main(cfg: DictConfig) -> None:
     mlf_logger = MLFlowLogger(
         experiment_name=cfg.mlflow.experiment_name,
         tracking_uri=cfg.mlflow.tracking_uri,
-        run_name=cfg.mlflow.run_name,  # ← было f"{cfg.model.name}-run"
+        run_name=cfg.mlflow.run_name,
     )
 
     mlf_logger._experiment_id = experiment_id
 
-    # ── Callbacks ─────────────────────────────────────────────
     callbacks = [
         ModelCheckpoint(
             dirpath=cfg.checkpoints.dirpath,
@@ -97,7 +91,6 @@ def main(cfg: DictConfig) -> None:
         LearningRateMonitor(logging_interval="epoch"),
     ]
 
-    # ── Trainer ───────────────────────────────────────────────
     trainer = pl.Trainer(
         max_epochs=cfg.training.max_epochs,
         precision=cfg.training.precision,
@@ -107,15 +100,13 @@ def main(cfg: DictConfig) -> None:
         deterministic=True,
     )
 
-    # ── Обучение ──────────────────────────────────────────────
-    print("\n🚀 Начинаю обучение...")
+    print("\nНачинаю обучение...")
     trainer.fit(model, train_loader, val_loader)
 
-    # ── Тест ──────────────────────────────────────────────────
-    print("\n🧪 Оцениваю на test set...")
+    print("\nОцениваю на test set...")
     trainer.test(model, test_loader, ckpt_path="best")
 
-    print(f"\n✅ Готово! Лучший чекпоинт: {trainer.checkpoint_callback.best_model_path}")
+    print(f"\nЛучший чекпоинт: {trainer.checkpoint_callback.best_model_path}")
 
     mlflow.end_run()
 

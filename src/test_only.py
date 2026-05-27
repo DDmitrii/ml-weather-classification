@@ -24,18 +24,15 @@ torch.serialization.add_safe_globals([
     typing.Any,
 ])
 
-# ── Настройки ─────────────────────────────────────────────────────────────────
 CHECKPOINT    = "checkpoints/epoch=17-val_f1=0.9921.ckpt"  # ← заменить
 EXPERIMENT    = "focal_loss_multihead"                        # ← имя конфига
 USE_MULTIHEAD = True
 TTA_ENABLED   = True
-TTA_N         = 5  # количество augmented passes (+ 1 оригинал = 6 всего)
+TTA_N         = 5
 
-# Пороги per-class (None = подобрать автоматически по val)
 THRESHOLDS = None
 
 
-# ── TTA transforms ─────────────────────────────────────────────────────────────
 def get_tta_transforms(img_size: int) -> list[A.Compose]:
     mean = (0.485, 0.456, 0.406)
     std  = (0.229, 0.224, 0.225)
@@ -47,18 +44,17 @@ def get_tta_transforms(img_size: int) -> list[A.Compose]:
     ]
 
     augmentations = [
-        [],  # pass 1: оригинал
-        [A.HorizontalFlip(p=1.0)],                                                         # pass 2
-        [A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=1.0)],   # pass 3
-        [A.GaussianBlur(blur_limit=(3, 5), p=1.0)],                                        # pass 4
-        [A.Affine(scale=(0.95, 1.05), translate_percent=(0.02, 0.02), rotate=(-5, 5), p=1.0)],  # pass 5
-        [A.RandomGamma(gamma_limit=(85, 115), p=1.0)],                                     # pass 6
+        [],
+        [A.HorizontalFlip(p=1.0)],
+        [A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=1.0)],
+        [A.GaussianBlur(blur_limit=(3, 5), p=1.0)],
+        [A.Affine(scale=(0.95, 1.05), translate_percent=(0.02, 0.02), rotate=(-5, 5), p=1.0)],
+        [A.RandomGamma(gamma_limit=(85, 115), p=1.0)],
     ]
 
     return [A.Compose(aug + base) for aug in augmentations[:TTA_N + 1]]
 
 
-# ── Inference helpers ──────────────────────────────────────────────────────────
 def _forward(model, x: torch.Tensor, use_multihead: bool) -> torch.Tensor:
     """Единый forward pass → softmax probs."""
     if use_multihead:
@@ -139,7 +135,6 @@ def predict_with_thresholds(probs: torch.Tensor, thresholds: dict | None) -> tor
     return adjusted.argmax(dim=1)
 
 
-# ── Calibration ────────────────────────────────────────────────────────────────
 def calibrate_thresholds(probs: torch.Tensor, labels: list, class_names: list) -> dict:
     """Подбирает оптимальный порог для каждого класса по F1 на val."""
     best_thresholds = {}
@@ -160,7 +155,6 @@ def calibrate_thresholds(probs: torch.Tensor, labels: list, class_names: list) -
     return best_thresholds
 
 
-# ── Report ─────────────────────────────────────────────────────────────────────
 def print_and_save_report(
     labels: list,
     preds: list,
@@ -169,7 +163,7 @@ def print_and_save_report(
     cm_path: str,
 ) -> None:
     os.makedirs(os.path.dirname(cm_path), exist_ok=True)
-    print(f"\n📊 {title}")
+    print(f"\n {title}")
     print(classification_report(labels, preds, target_names=class_names, digits=3))
 
     cm = confusion_matrix(labels, preds)
@@ -187,19 +181,17 @@ def print_and_save_report(
     plt.tight_layout()
     plt.savefig(cm_path, dpi=150)
     plt.close()
-    print(f"✅ Confusion matrix: {cm_path}")
+    print(f"Confusion matrix: {cm_path}")
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     with initialize(config_path="../configs", version_base=None):
         cfg = compose(config_name="train", overrides=[f"experiments={EXPERIMENT}"])
 
     class_names = list(cfg.data.class_names)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🖥️  Device: {device}")
+    print(f"Device: {device}")
 
-    # Веса классов и датасеты
     train_ds = WeatherDataset(
         root=cfg.data.train_dir,
         class_names=class_names,
@@ -215,7 +207,6 @@ if __name__ == "__main__":
 
     _, val_loader, test_loader = build_dataloaders(cfg)
 
-    # Загрузка модели
     ModelClass = WeatherClassifierMultiHead if USE_MULTIHEAD else WeatherClassifier
     model = ModelClass.load_from_checkpoint(
         CHECKPOINT,
@@ -224,10 +215,9 @@ if __name__ == "__main__":
         weights_only=False,
     )
     model.to(device)
-    print(f"✅ Модель загружена: {CHECKPOINT}")
+    print(f"Модель загружена: {CHECKPOINT}")
 
-    # ── 1. Baseline inference ──────────────────────────────────────────────
-    print("\n🔍 [1/4] Baseline inference (без TTA)...")
+    print("\n[1/4] Baseline inference (без TTA)...")
     test_probs, test_labels = collect_probs(model, test_loader, device, USE_MULTIHEAD)
     baseline_preds = predict_with_thresholds(test_probs, None).tolist()
     print_and_save_report(
@@ -236,7 +226,6 @@ if __name__ == "__main__":
         "reports/cm_baseline.png",
     )
 
-    # ── 2. TTA inference ───────────────────────────────────────────────────
     if TTA_ENABLED:
         print(f"\n🔁 [2/4] TTA inference ({TTA_N + 1} passes)...")
         tta_probs, tta_labels = collect_probs_tta(
@@ -249,16 +238,13 @@ if __name__ == "__main__":
             "reports/cm_tta.png",
         )
 
-    # ── 3. Калибровка порогов на val ───────────────────────────────────────
-    print("\n⚙️  [3/4] Подбираю пороги на val...")
+    print("\n [3/4] Подбираю пороги на val...")
     val_probs, val_labels = collect_probs(model, val_loader, device, USE_MULTIHEAD)
     thresholds = calibrate_thresholds(val_probs, val_labels, class_names)
-    print(f"\n📌 Найденные пороги: {thresholds}")
+    print(f"\n Найденные пороги: {thresholds}")
 
-    # ── 4. Результаты с калибровкой ────────────────────────────────────────
-    print("\n📈 [4/4] Применяю пороги к test...")
+    print("\n [4/4] Применяю пороги к test...")
 
-    # Baseline + calibration
     calibrated_preds = predict_with_thresholds(test_probs, thresholds).tolist()
     print_and_save_report(
         test_labels, calibrated_preds, class_names,
@@ -266,7 +252,6 @@ if __name__ == "__main__":
         "reports/cm_baseline_calibrated.png",
     )
 
-    # TTA + calibration (лучший вариант)
     if TTA_ENABLED:
         calibrated_tta_preds = predict_with_thresholds(tta_probs, thresholds).tolist()
         print_and_save_report(
@@ -275,4 +260,4 @@ if __name__ == "__main__":
             "reports/cm_tta_calibrated.png",
         )
 
-    print("\n🏁 Готово! Результаты сохранены в reports/")
+    print("\nРезультаты сохранены в reports/")

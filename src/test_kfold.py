@@ -5,7 +5,6 @@ import torch
 import omegaconf
 import typing
 import pytorch_lightning as pl
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from omegaconf import DictConfig
@@ -32,7 +31,6 @@ def main(cfg: DictConfig):
 
     ckpt_path = "checkpoints/fold1/epoch=20-val_f1=0.9952.ckpt"
 
-    # Загружаем чекпоинт и определяем тип модели по ключам
     state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     keys = list(state["state_dict"].keys())
     print(f"🔑 Первые 5 ключей в чекпоинте: {keys[:5]}")
@@ -43,22 +41,20 @@ def main(cfg: DictConfig):
 
     class_names = list(cfg.data.class_names)
 
-    # Инициализируем нужную модель
     if is_multihead:
         model = WeatherClassifierMultiHead(cfg)
     else:
         model = WeatherClassifier(cfg)
 
     missing, unexpected = model.load_state_dict(state["state_dict"], strict=False)
-    print(f"✅ Загружено: missing={len(missing)}, unexpected={len(unexpected)}")
+    print(f"Загружено: missing={len(missing)}, unexpected={len(unexpected)}")
     if missing:
-        print(f"   ⚠️ Missing keys (первые 3): {missing[:3]}")
+        print(f"   Missing keys (первые 3): {missing[:3]}")
     if unexpected:
-        print(f"   ⚠️ Unexpected keys (первые 3): {unexpected[:3]}")
+        print(f"   Unexpected keys (первые 3): {unexpected[:3]}")
 
     model.eval()
 
-    # Тестовый датасет
     test_ds = WeatherDataset(
         cfg.data.test_dir,
         class_names=class_names,
@@ -72,9 +68,8 @@ def main(cfg: DictConfig):
         pin_memory=True,
     )
 
-    print(f"\n📂 Тестовых сэмплов: {len(test_ds)}")
+    print(f"\nТестовых сэмплов: {len(test_ds)}")
 
-    # Запуск теста через Trainer
     trainer = pl.Trainer(
         precision=cfg.training.precision,
         logger=False,
@@ -82,7 +77,6 @@ def main(cfg: DictConfig):
     )
     trainer.test(model, test_loader)
 
-    # --- Дополнительно: ручной прогон для per-class метрик ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
@@ -111,16 +105,15 @@ def main(cfg: DictConfig):
     prec_per = prec_fn(preds_t, targets_t, task="multiclass", num_classes=n_cls, average="none")
     rec_per  = rec_fn(preds_t, targets_t, task="multiclass", num_classes=n_cls, average="none")
 
-    print(f"\n📊 Per-class metrics (test):")
+    print(f"\nPer-class metrics (test):")
     print(f"{'Class':<15} {'Precision':>10} {'Recall':>10} {'F1':>10}")
     print("-" * 50)
     for i, name in enumerate(class_names):
         print(f"{name:<15} {prec_per[i]:>10.3f} {rec_per[i]:>10.3f} {f1_per[i]:>10.3f}")
     print("-" * 50)
     print(f"{'macro avg':<15} {prec_per.mean():>10.3f} {rec_per.mean():>10.3f} {test_f1:>10.3f}")
-    print(f"\n✅ Test Accuracy: {test_acc:.4f}  |  Test F1-macro: {test_f1:.4f}")
+    print(f"\nTest Accuracy: {test_acc:.4f}  |  Test F1-macro: {test_f1:.4f}")
 
-    # Confusion matrix
     from torchmetrics.functional import confusion_matrix as cm_fn
     cm = cm_fn(preds_t, targets_t, task="multiclass", num_classes=n_cls).numpy()
     cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
@@ -137,7 +130,7 @@ def main(cfg: DictConfig):
     cm_path = f"reports/test_confusion_matrix_fold1.png"
     plt.savefig(cm_path, dpi=150)
     plt.close()
-    print(f"✅ Confusion matrix сохранена: {cm_path}")
+    print(f"Confusion matrix сохранена: {cm_path}")
 
 
 if __name__ == "__main__":

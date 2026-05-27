@@ -60,7 +60,7 @@ def plot_confusion_matrix(
 
     if save_path:
         fig.savefig(save_path, dpi=150)
-        print(f"💾 Сохранено: {save_path}")
+        print(f"Сохранено: {save_path}")
 
     return fig
 

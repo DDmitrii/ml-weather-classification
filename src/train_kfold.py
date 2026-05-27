@@ -1,4 +1,3 @@
-# src/train_kfold.py
 import os
 os.environ["PL_WEIGHTS_ONLY_LOAD"] = "0"
 
@@ -18,7 +17,7 @@ from torchmetrics.functional import f1_score, accuracy
 import hydra
 from omegaconf import DictConfig
 
-from src.data.dataset import WeatherDataset, DAY_NIGHT_MAP, WEATHER_TYPE_MAP
+from src.data.dataset import WeatherDataset
 from src.data.transforms import get_train_transforms, get_val_transforms
 from src.model import WeatherClassifier, WeatherClassifierMultiHead
 
@@ -65,7 +64,7 @@ def main(cfg: DictConfig) -> None:
     all_samples = collect_all_samples(cfg)
     labels      = np.array([label for _, label in all_samples])
 
-    print(f"📂 Всего сэмплов для KFold: {len(all_samples)}")
+    print(f"Всего сэмплов для KFold: {len(all_samples)}")
     print(f"   Классы: {class_names}")
 
     skf     = StratifiedKFold(n_splits=3, shuffle=True, random_state=cfg.seed)
@@ -85,7 +84,7 @@ def main(cfg: DictConfig) -> None:
 
     for fold, (train_idx, val_idx) in enumerate(skf.split(all_samples, labels)):
         print(f"\n{'='*50}")
-        print(f"🔁 Fold {fold + 1}/3  |  train={len(train_idx)}  val={len(val_idx)}")
+        print(f"Fold {fold + 1}/3  |  train={len(train_idx)}  val={len(val_idx)}")
         print(f"{'='*50}")
 
         train_samples = [all_samples[i] for i in train_idx]
@@ -100,7 +99,6 @@ def main(cfg: DictConfig) -> None:
             transform=get_val_transforms(cfg.data.img_size)
         )
 
-        # WeightedRandomSampler для train
         class_counts = [0] * n_cls
         for _, lbl in train_samples:
             class_counts[lbl] += 1
@@ -115,10 +113,8 @@ def main(cfg: DictConfig) -> None:
         train_loader = DataLoader(train_ds, sampler=sampler, **loader_kwargs)
         val_loader   = DataLoader(val_ds, shuffle=False, **loader_kwargs)
 
-        # Веса классов
         weights = train_ds.get_class_weights()
 
-        # Модель
         use_multihead = cfg.training.get("multihead", False)
         model = (
             WeatherClassifierMultiHead(cfg, class_weights=weights)
@@ -160,8 +156,7 @@ def main(cfg: DictConfig) -> None:
 
         trainer.fit(model, train_loader, val_loader)
 
-        # ── Собираем OOF предсказания ──────────────────────────────────
-        print(f"\n📦 Собираю OOF для fold {fold+1}...")
+        print(f"\nСобираю OOF для fold {fold+1}...")
         model.eval()
         model = model.to("cuda" if torch.cuda.is_available() else "cpu")
         device = next(model.parameters()).device
@@ -183,9 +178,8 @@ def main(cfg: DictConfig) -> None:
         oof_preds[val_idx] = fold_preds
         mlflow.end_run()
 
-    # ── OOF анализ ────────────────────────────────────────────────────
     print("\n" + "="*50)
-    print("📊 OOF результаты по всей выборке")
+    print("OOF результаты по всей выборке")
     print("="*50)
 
     oof_preds_t   = torch.tensor(oof_preds)
@@ -205,7 +199,6 @@ def main(cfg: DictConfig) -> None:
     for i, name in enumerate(class_names):
         print(f"{name:<15} {f1_per[i]:>8.3f}")
 
-    # Confusion matrix
     from torchmetrics.functional import confusion_matrix as cm_fn
     cm = cm_fn(oof_preds_t, oof_targets_t,
                task="multiclass", num_classes=n_cls).numpy()
@@ -223,22 +216,19 @@ def main(cfg: DictConfig) -> None:
     cm_path = f"reports/oof_confusion_matrix_{cfg.model.name}.png"
     plt.savefig(cm_path, dpi=150)
     plt.close()
-    print(f"\n✅ OOF confusion matrix сохранена: {cm_path}")
+    print(f"\nOOF confusion matrix сохранена: {cm_path}")
 
-    # Сохраняем ошибочные кейсы для анализа
     errors = [(all_samples[i][0], oof_targets[i], oof_preds[i])
               for i in range(len(all_samples)) if oof_preds[i] != oof_targets[i]]
-    print(f"\n🔍 Ошибочных предсказаний: {len(errors)} / {len(all_samples)} "
+    print(f"\nОшибочных предсказаний: {len(errors)} / {len(all_samples)} "
           f"({100*len(errors)/len(all_samples):.1f}%)")
 
-    # Топ-5 самых частых ошибочных пар
     from collections import Counter
     error_pairs = Counter((class_names[t], class_names[p]) for _, t, p in errors)
     print("\nТоп-10 ошибочных пар (true → predicted):")
     for (true_cls, pred_cls), count in error_pairs.most_common(10):
         print(f"   {true_cls:<15} → {pred_cls:<15} : {count}")
 
-    # Логируем итоги в MLflow
     with mlflow.start_run(experiment_id=experiment_id,
                           run_name=f"{cfg.model.name}-oof-summary"):
         mlflow.log_metric("oof_accuracy", oof_acc)

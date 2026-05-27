@@ -14,7 +14,6 @@ class ExperimentLogger:
     def start(self, run_name: str = None):
         """Начать новый run."""
         self._run = mlflow.start_run(run_name=run_name)
-        # Логируем весь конфиг как параметры
         flat = self._flatten(OmegaConf.to_container(self.cfg, resolve=True))
         mlflow.log_params(flat)
         return self
@@ -26,7 +25,6 @@ class ExperimentLogger:
         mlflow.log_artifact(path)
 
     def log_model(self, model, artifact_path: str = "model"):
-        import torch
         mlflow.pytorch.log_model(model, artifact_path)
 
     def finish(self):

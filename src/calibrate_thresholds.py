@@ -55,9 +55,9 @@ def calibrate(probs, labels, class_names):
 
     baseline_preds = probs.argmax(dim=1).tolist()
     baseline_f1 = f1_score(labels, baseline_preds, average="macro")
-    print(f"\n📌 Baseline val macro-F1: {baseline_f1:.4f}")
+    print(f"\nBaseline val macro-F1: {baseline_f1:.4f}")
 
-    print("\n⚙️  Подбираю пороги...")
+    print("\nПодбираю пороги...")
     for cls_idx in range(n_classes):
         best_f1_cls = f1_score(labels, baseline_preds, average=None)[cls_idx]
         best_thr = 0.5
@@ -110,14 +110,12 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    # ── Собираем вероятности ─────────────────────────────────
-    print("🔍 Собираю вероятности на val...")
+    print("Собираю вероятности на val...")
     val_probs, val_labels = collect_probs(model, val_loader, device)
 
-    print("🔍 Собираю вероятности на test...")
+    print("Собираю вероятности на test...")
     test_probs, test_labels = collect_probs(model, test_loader, device)
 
-    # ── MLflow ───────────────────────────────────────────────
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
     experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT)
     if experiment is None:
@@ -133,7 +131,7 @@ if __name__ == "__main__":
         baseline_f1_macro = f1_score(test_labels, baseline_preds, average="macro")
         baseline_f1_per = f1_score(test_labels, baseline_preds, average=None)
 
-        print("\n📊 Baseline (test):")
+        print("\nBaseline (test):")
         print(classification_report(test_labels, baseline_preds, target_names=class_names))
 
         mlflow.log_metric("baseline_test_f1_macro", baseline_f1_macro)
@@ -145,19 +143,17 @@ if __name__ == "__main__":
                               "reports/cm_baseline.png")
         mlflow.log_artifact("reports/cm_baseline.png")
 
-        # ── Калибровка на val ────────────────────────────────
         thresholds = calibrate(val_probs, val_labels, class_names)
-        print(f"\n📌 Итоговые пороги: {thresholds}")
+        print(f"\nИтоговые пороги: {thresholds}")
 
         for i, name in enumerate(class_names):
             mlflow.log_param(f"thr_{name}", thresholds[i])
 
-        # ── Результат на test ─────────────────────────────────
         calibrated_preds = apply_thresholds(test_probs, thresholds)
         calibrated_f1_macro = f1_score(test_labels, calibrated_preds, average="macro")
         calibrated_f1_per = f1_score(test_labels, calibrated_preds, average=None)
 
-        print("\n📊 После калибровки (test):")
+        print("\nПосле калибровки (test):")
         print(classification_report(test_labels, calibrated_preds, target_names=class_names))
 
         mlflow.log_metric("calibrated_test_f1_macro", calibrated_f1_macro)
@@ -166,15 +162,14 @@ if __name__ == "__main__":
 
         delta = calibrated_f1_macro - baseline_f1_macro
         mlflow.log_metric("delta_f1_macro", delta)
-        print(f"\n📈 Δ macro-F1: {delta:+.4f}")
+        print(f"\nΔ macro-F1: {delta:+.4f}")
 
         save_confusion_matrix(test_labels, calibrated_preds, class_names,
                               "Calibrated thresholds (test)",
                               "reports/cm_calibrated.png")
         mlflow.log_artifact("reports/cm_calibrated.png")
 
-        # ── Сохраняем пороги ─────────────────────────────────
         with open(THRESHOLDS_PATH, "w") as f:
             json.dump({class_names[i]: v for i, v in thresholds.items()}, f, indent=2)
         mlflow.log_artifact(THRESHOLDS_PATH)
-        print(f"\n✅ Пороги сохранены: {THRESHOLDS_PATH}")
+        print(f"\nПороги сохранены: {THRESHOLDS_PATH}")

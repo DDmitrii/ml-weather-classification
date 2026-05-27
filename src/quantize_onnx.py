@@ -1,4 +1,3 @@
-# src/quantize_onnx.py
 import argparse
 import numpy as np
 import torch
@@ -45,7 +44,7 @@ if __name__ == "__main__":
     FP32_PATH = c["fp32"]
     INT8_PATH = c["int8"]
 
-    print(f"🚀 Квантизуем: {args.model} → {INT8_PATH}\n")
+    print(f"Квантизуем: {args.model} → {INT8_PATH}\n")
 
     with initialize(config_path="../configs", version_base=None):
         cfg = compose(
@@ -55,7 +54,6 @@ if __name__ == "__main__":
 
     Path("exports").mkdir(exist_ok=True)
 
-    # ── Шаг 1: Dynamic INT8 quantization ────────────────────────────────────
     print("⚙️  Квантизую модель (dynamic int8)...")
     quantize_dynamic(
         model_input=FP32_PATH,
@@ -64,20 +62,17 @@ if __name__ == "__main__":
         per_channel=False,
         reduce_range=True,
     )
-    print(f"✅ Квантизованная модель сохранена: {INT8_PATH}")
+    print(f"Квантизованная модель сохранена: {INT8_PATH}")
 
-    # ── Шаг 2: Размеры ──────────────────────────────────────────────────────
     fp32_mb = Path(FP32_PATH).stat().st_size / 1024 / 1024
     int8_mb = Path(INT8_PATH).stat().st_size / 1024 / 1024
-    print(f"\n📦 Размер fp32 : {fp32_mb:.1f} MB")
-    print(f"📦 Размер int8 : {int8_mb:.1f} MB")
-    print(f"📉 Сжатие      : {fp32_mb / int8_mb:.1f}x")
+    print(f"\nРазмер fp32 : {fp32_mb:.1f} MB")
+    print(f"Размер int8 : {int8_mb:.1f} MB")
+    print(f"Сжатие      : {fp32_mb / int8_mb:.1f}x")
 
-    # ── Шаг 3: Latency benchmark ─────────────────────────────────────────────
     import onnxruntime as ort
     import time
 
-    # Для teacher выходы двойные, для student — одиночные
     is_teacher = (args.model == "teacher")
     output_names = ["logits_dn", "logits_wt"] if is_teacher else ["logits"]
 
@@ -86,7 +81,6 @@ if __name__ == "__main__":
     sess_int8 = ort.InferenceSession(INT8_PATH, providers=["CPUExecutionProvider"])
 
     def benchmark(sess, n=50):
-        # прогрев
         for _ in range(5):
             sess.run(output_names, {"image": dummy})
         t0 = time.perf_counter()
@@ -94,15 +88,14 @@ if __name__ == "__main__":
             sess.run(output_names, {"image": dummy})
         return (time.perf_counter() - t0) / n * 1000
 
-    print("\n⏱️  Замеряю latency (50 итераций, batch=1, CPU)...")
+    print("\nЗамеряю latency (50 итераций, batch=1, CPU)...")
     lat_fp32 = benchmark(sess_fp32)
     lat_int8 = benchmark(sess_int8)
     print(f"   fp32 latency : {lat_fp32:.1f} ms")
     print(f"   int8 latency : {lat_int8:.1f} ms")
     print(f"   Ускорение    : {lat_fp32 / lat_int8:.1f}x")
 
-    # ── Шаг 4: Accuracy на val ───────────────────────────────────────────────
-    print("\n📊 Считаю accuracy на val...")
+    print("\nСчитаю accuracy на val...")
     val_ds = WeatherDataset(
         root=cfg.data.val_dir,
         class_names=list(cfg.data.class_names),
@@ -116,7 +109,6 @@ if __name__ == "__main__":
             x = batch[0].numpy()
             y = batch[1].numpy()
             if is_teacher:
-                # teacher: объединяем предсказания через argmax обоих хедов
                 logits_dn, logits_wt = sess.run(output_names, {"image": x})
                 pred_dn = logits_dn.argmax(axis=1)
                 pred_wt = logits_wt.argmax(axis=1)

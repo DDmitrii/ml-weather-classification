@@ -1,4 +1,3 @@
-# src/eval_student.py
 import torch
 import timm
 import typing
@@ -21,7 +20,6 @@ TEACHER_CKPT = "checkpoints/epoch=29-val_f1=0.9856.ckpt"
 @torch.no_grad()
 def evaluate(model, loader, device) -> tuple[float, dict]:
     from collections import defaultdict
-    import torch.nn.functional as F
 
     model.eval()
     correct = total = 0
@@ -63,7 +61,6 @@ def main(cfg: DictConfig):
     )
     print(f"📂 Test set: {len(test_ds)} изображений\n")
 
-    # ── Teacher ───────────────────────────────────────────────────
     teacher = timm.create_model("convnext_tiny", pretrained=False, num_classes=len(class_names))
     ckpt    = torch.load(TEACHER_CKPT, map_location=device, weights_only=False)
     state   = ckpt["state_dict"]
@@ -74,7 +71,6 @@ def main(cfg: DictConfig):
 
     teacher_acc, teacher_per_class = evaluate(teacher, test_loader, device)
 
-    # ── Student ───────────────────────────────────────────────────
     student = timm.create_model("mobilenetv3_small_100", pretrained=False, num_classes=len(class_names))
     ckpt    = torch.load(STUDENT_CKPT, map_location=device, weights_only=False)
     student.load_state_dict(ckpt["state_dict"])
@@ -82,14 +78,13 @@ def main(cfg: DictConfig):
 
     student_acc, student_per_class = evaluate(student, test_loader, device)
 
-    # ── Отчёт ─────────────────────────────────────────────────────
     print(f"{'Класс':<20} {'Teacher':>10} {'Student':>10} {'Разница':>10}")
     print("─" * 55)
     for i, name in enumerate(class_names):
         t = teacher_per_class[i]
         s = student_per_class[i]
         diff = s - t
-        flag = "⚠️ " if diff < -0.05 else ""
+        flag = "" if diff < -0.05 else ""
         print(f"{flag}{name:<20} {t:>9.2%} {s:>9.2%} {diff:>+9.2%}")
 
     print("─" * 55)
