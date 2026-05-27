@@ -10,7 +10,7 @@ def check_dataset(data_dir: str = "src/data/data") -> None:
     """Проверить структуру датасета и вывести статистику."""
     data_path = Path(data_dir)
     print("=" * 50)
-    print("📊 Статистика датасета")
+    print("Stats")
     print("=" * 50)
 
     all_classes = None
@@ -18,7 +18,7 @@ def check_dataset(data_dir: str = "src/data/data") -> None:
     for split in SPLITS:
         split_path = data_path / split
         if not split_path.exists():
-            print(f"❌ {split}: папка не найдена")
+            print(f"{split}: not found")
             continue
 
         classes = sorted(d.name for d in split_path.iterdir() if d.is_dir())
@@ -31,7 +31,6 @@ def check_dataset(data_dir: str = "src/data/data") -> None:
             imgs = [p for p in imgs if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
             counts[cls] = len(imgs)
 
-            # Проверяем что файлы открываются
             for img_path in imgs[:3]:
                 try:
                     Image.open(img_path).verify()
@@ -39,22 +38,22 @@ def check_dataset(data_dir: str = "src/data/data") -> None:
                     broken.append(str(img_path))
 
         total = sum(counts.values())
-        print(f"\n📁 {split.upper()} — {total} изображений")
+        print(f"\n📁 {split.upper()} — {total} images")
         for cls, cnt in counts.items():
             bar = "█" * (cnt // max(counts.values()) * 20 // 1) if counts else ""
             print(f"   {cls:<20} {cnt:>5}")
 
         if broken:
-            print(f"   ⚠️  Битых файлов: {len(broken)}")
+            print(f"   Bad files {len(broken)}")
 
         if all_classes is None:
             all_classes = classes
         elif classes != all_classes:
-            print(f"   ⚠️  Классы в {split} не совпадают с train!")
+            print(f"      Классы в {split} не совпадают с train")
 
     print("\n" + "=" * 50)
     if all_classes:
-        print(f"✅ Классов: {len(all_classes)}")
+        print(f"Classes: {len(all_classes)}")
         print(f"   {all_classes}")
     print("=" * 50)
 

@@ -19,7 +19,6 @@ class WeatherClassifier(pl.LightningModule):
         num_classes = cfg.model.num_classes
         self.class_names = list(cfg.data.class_names)
 
-        # ── Backbone ──────────────────────────────────────────
         self.model = timm.create_model(
             cfg.model.name,
             pretrained=cfg.model.pretrained,
@@ -31,16 +30,13 @@ class WeatherClassifier(pl.LightningModule):
         if self._freeze_epochs > 0:
             self._freeze_backbone()
 
-        # ── Loss ──────────────────────────────────────────────
         self.criterion = build_loss(cfg, class_weights)
 
-        # ── Метрики train/val ─────────────────────────────────
         metric_kwargs = dict(task="multiclass", num_classes=num_classes)
         self.train_acc = Accuracy(**metric_kwargs)
         self.val_acc   = Accuracy(**metric_kwargs)
         self.val_f1    = F1Score(average="macro", **metric_kwargs)
 
-        # ── Метрики test ──────────────────────────────────────
         self.test_acc       = Accuracy(**metric_kwargs)
         self.test_f1        = F1Score(average="macro", **metric_kwargs)
         self.test_precision = Precision(average="none", **metric_kwargs)
@@ -48,7 +44,6 @@ class WeatherClassifier(pl.LightningModule):
         self.test_f1_per    = F1Score(average="none", **metric_kwargs)
         self.test_cm        = ConfusionMatrix(**metric_kwargs)
 
-    # ── Freeze helpers ────────────────────────────────────────
     def _freeze_backbone(self):
         for name, param in self.model.named_parameters():
             if "classifier" not in name and "head" not in name and "fc" not in name:
@@ -63,13 +58,11 @@ class WeatherClassifier(pl.LightningModule):
             self._unfreeze_backbone()
             for pg in self.optimizers().param_groups:
                 pg["lr"] = self.cfg.training.lr * 0.1
-            print(f"\n🔓 Epoch {self.current_epoch}: backbone разморожен, lr → {self.cfg.training.lr * 0.1:.2e}")
+            print(f"\nEpoch {self.current_epoch}: backbone разморожен, lr → {self.cfg.training.lr * 0.1:.2e}")
 
-    # ── Forward ───────────────────────────────────────────────
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
-    # ── Train ─────────────────────────────────────────────────
     def training_step(self, batch, batch_idx):
         x, y, *_ = batch
         logits = self(x)
@@ -80,7 +73,6 @@ class WeatherClassifier(pl.LightningModule):
         self.log("train_acc",  self.train_acc, prog_bar=True, on_epoch=True)
         return loss
 
-    # ── Validation ────────────────────────────────────────────
     def validation_step(self, batch, batch_idx):
         x, y, *_ = batch
         logits = self(x)
@@ -92,7 +84,6 @@ class WeatherClassifier(pl.LightningModule):
         self.log("val_acc",  self.val_acc, prog_bar=True)
         self.log("val_f1",   self.val_f1,  prog_bar=True)
 
-    # ── Test ──────────────────────────────────────────────────
     def test_step(self, batch, batch_idx):
         x, y, *_ = batch
         preds = self(x).argmax(dim=1)
@@ -111,8 +102,7 @@ class WeatherClassifier(pl.LightningModule):
         f1        = self.test_f1_per.compute()
         cm        = self.test_cm.compute().cpu().numpy()
 
-        # ── Per-class метрики в консоль ───────────────────────
-        print("\n📊 Per-class metrics:")
+        print("\nPer-class metrics:")
         print(f"{'Class':<15} {'Precision':>10} {'Recall':>10} {'F1':>10}")
         print("-" * 50)
         for i, name in enumerate(self.class_names):
@@ -120,13 +110,11 @@ class WeatherClassifier(pl.LightningModule):
         print("-" * 50)
         print(f"{'macro avg':<15} {precision.mean():>10.3f} {recall.mean():>10.3f} {f1.mean():>10.3f}")
 
-        # ── Per-class метрики в MLflow ────────────────────────
         for i, name in enumerate(self.class_names):
             self.log(f"test_f1_{name}",        f1[i])
             self.log(f"test_precision_{name}", precision[i])
             self.log(f"test_recall_{name}",    recall[i])
 
-        # ── Confusion matrix ──────────────────────────────────
         cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
         fig, ax = plt.subplots(figsize=(10, 8))
         sns.heatmap(
@@ -147,13 +135,11 @@ class WeatherClassifier(pl.LightningModule):
         cm_path = f"confusion_matrix_{self.cfg.model.name}.png"
         plt.savefig(cm_path, dpi=150)
         plt.close()
-        print(f"\n✅ Confusion matrix сохранена: {cm_path}")
+        print(f"\nConfusion matrix сохранена: {cm_path}")
 
-        # Логируем в MLflow как артефакт
         if self.logger:
             self.logger.experiment.log_artifact(self.logger.run_id, cm_path)
 
-    # ── Optimizer + Scheduler ─────────────────────────────────
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
@@ -180,7 +166,6 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         self.class_names   = list(cfg.data.class_names)
         num_classes        = cfg.model.num_classes  # 9
 
-        # ── Backbone (без финального классификатора) ──────────────────
         self.backbone = timm.create_model(
             cfg.model.name,
             pretrained=cfg.model.pretrained,
@@ -189,21 +174,17 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         )
         feat_dim = self.backbone.num_features
 
-        # ── Два хеда ──────────────────────────────────────────────────
-        self.head_dn = nn.Linear(feat_dim, 2)   # Day / Night
-        self.head_wt = nn.Linear(feat_dim, 5)   # Clear/Fog/ForRain/Rain/Snow
+        self.head_dn = nn.Linear(feat_dim, 2)
+        self.head_wt = nn.Linear(feat_dim, 5)
 
-        # ── Freeze helper ─────────────────────────────────────────────
         self._freeze_epochs = getattr(cfg.model, "freeze_epochs", 0)
         if self._freeze_epochs > 0:
             self._freeze_backbone()
 
-        # ── Loss ──────────────────────────────────────────────────────
         lam = cfg.training.get("multihead_lambda", 1.0)
         gamma = cfg.training.get("focal_gamma", 0.0)
         self.criterion = MultiHeadLoss(lam=lam, gamma=gamma)
 
-        # ── Метрики (по финальным 9 классам) ─────────────────────────
         mkw = dict(task="multiclass", num_classes=num_classes)
         self.train_acc      = Accuracy(**mkw)
         self.val_acc        = Accuracy(**mkw)
@@ -215,14 +196,12 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         self.test_f1_per    = F1Score(average="none", **mkw)
         self.test_cm        = ConfusionMatrix(**mkw)
 
-        # Таблица комбо → финальный класс (тензор для быстрого lookup)
-        # combo_table[dn][wt] = final_idx
+
         combo_table = torch.zeros(2, 5, dtype=torch.long)
         for (dn, wt), final in COMBO_TO_FINAL.items():
             combo_table[dn][wt] = final
         self.register_buffer("combo_table", combo_table)
 
-    # ── Freeze helpers ────────────────────────────────────────────────
     def _freeze_backbone(self):
         for param in self.backbone.parameters():
             param.requires_grad = False
@@ -238,7 +217,6 @@ class WeatherClassifierMultiHead(pl.LightningModule):
                 pg["lr"] = self.cfg.training.lr * 0.1
             print(f"\n🔓 Epoch {self.current_epoch}: backbone разморожен")
 
-    # ── Forward ───────────────────────────────────────────────────────
     def forward(self, x):
         feats      = self.backbone(x)
         logits_dn  = self.head_dn(feats)
@@ -260,10 +238,8 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         p_dn = torch.softmax(logits_dn, dim=1)  # (B, 2)
         p_wt = torch.softmax(logits_wt, dim=1)  # (B, 5)
 
-        # outer product: (B, 2, 5)
         joint = torch.einsum("bi,bj->bij", p_dn, p_wt)
 
-        # собираем 9 финальных классов
         B = logits_dn.shape[0]
         probs = torch.zeros(B, len(self.class_names), device=logits_dn.device)
         for (dn, wt), final in COMBO_TO_FINAL.items():
@@ -271,7 +247,6 @@ class WeatherClassifierMultiHead(pl.LightningModule):
 
         return probs
 
-        # ── Train ─────────────────────────────────────────────────────────
     def training_step(self, batch, batch_idx):
         x, y, y_dn, y_wt = batch
         logits_dn, logits_wt = self(x)
@@ -284,7 +259,6 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         self.log("train_acc",     self.train_acc, prog_bar=True, on_epoch=True)
         return loss
 
-    # ── Validation ────────────────────────────────────────────────────
     def validation_step(self, batch, batch_idx):
         x, y, y_dn, y_wt = batch
         logits_dn, logits_wt = self(x)
@@ -298,7 +272,6 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         self.log("val_acc",     self.val_acc, prog_bar=True)
         self.log("val_f1",      self.val_f1,  prog_bar=True)
 
-    # ── Test ──────────────────────────────────────────────────────────
     def test_step(self, batch, batch_idx):
         x, y, y_dn, y_wt = batch
         logits_dn, logits_wt = self(x)
@@ -318,7 +291,7 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         f1        = self.test_f1_per.compute()
         cm        = self.test_cm.compute().cpu().numpy()
 
-        print("\n📊 Per-class metrics:")
+        print("\nPer-class metrics:")
         print(f"{'Class':<15} {'Precision':>10} {'Recall':>10} {'F1':>10}")
         print("-" * 50)
         for i, name in enumerate(self.class_names):
@@ -346,11 +319,10 @@ class WeatherClassifierMultiHead(pl.LightningModule):
         cm_path = f"confusion_matrix_{self.cfg.model.name}_multihead.png"
         plt.savefig(cm_path, dpi=150)
         plt.close()
-        print(f"\n✅ Confusion matrix сохранена: {cm_path}")
+        print(f"\nConfusion matrix сохранена: {cm_path}")
         if self.logger:
             self.logger.experiment.log_artifact(self.logger.run_id, cm_path)
 
-    # ── Optimizer ─────────────────────────────────────────────────────
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             self.parameters(),
