@@ -12,6 +12,7 @@ from PIL import Image, UnidentifiedImageError
 
 from src.api.predictor import WeatherPredictor
 from src.api.schemas import PredictionResponse, ErrorResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # ── Логирование ──────────────────────────────────────────────────────────────
 
@@ -76,6 +77,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 
 # ── Middleware: логирование запросов ─────────────────────────────────────────
 
@@ -117,7 +125,9 @@ async def predict(
     ),
 ):
     # Валидация типа
-    if image.content_type not in ALLOWED_TYPES:
+    if (image.content_type
+            and image.content_type not in ALLOWED_TYPES
+            and image.content_type != "application/octet-stream"):
         raise HTTPException(
             status_code=400,
             detail=f"Неподдерживаемый тип файла: {image.content_type}. Используйте JPEG, PNG или WebP.",
