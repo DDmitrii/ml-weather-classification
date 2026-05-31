@@ -13,6 +13,7 @@ from PIL import Image, UnidentifiedImageError
 from src.api.predictor import WeatherPredictor
 from src.api.schemas import PredictionResponse, ErrorResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # ── Логирование ──────────────────────────────────────────────────────────────
 
@@ -76,6 +77,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 app.add_middleware(
     CORSMiddleware,
