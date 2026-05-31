@@ -14,7 +14,7 @@ F1 score: 0.8867 \
 Dataset: v2 (9 classes) \
 Comment: Переход на датасет v2 (дочищенные метки, исправлен баланс классов через `WeightedRandomSampler`) дал прирост +7.0% accuracy и +12.3% F1. Архитектура не менялась — весь прирост за счёт данных.
 
-![Скриншот](img/Confusion_matrix_convnext_tiny.png)
+![Скриншот](img/confusion_matrix_convnext_tiny.png)
 
 **Multihead** \
 Model: ConvNeXt-Tiny \
@@ -23,7 +23,7 @@ F1 score: 0.9044 \
 Dataset: v2 (9 classes) \
 Comment: Заменили одноголовый классификатор на двухголовый: `head_dn` (день/ночь) + `head_wt` (тип погоды). Итоговый класс — декартово произведение softmax двух голов через `COMBO_TO_FINAL`. Прирост +1.1% accuracy, +1.8% F1 — особенно снизилась путаница между `night` и ночными классами.
 
-![Скриншот](img/Confusion_matrix_convnext_tiny_multihead.png)
+![Скриншот](img/confusion_matrix_convnext_tiny_multihead.png)
 
 **Focal loss + Multihead** \
 Model: ConvNeXt-Tiny \
