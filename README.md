@@ -76,7 +76,7 @@ L = FocalLoss(logits_dn, y_dn) + λ · FocalLoss(logits_wt, y_wt),  λ = 1.0
 ### Установка
 
 ```bash
-git clone https://github.com/<your-username>/ml-weather-classification
+git clone https://github.com/DDmitrii/ml-weather-classification
 
 pip install -r requirements.txt
 ```
