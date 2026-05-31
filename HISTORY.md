@@ -5,7 +5,7 @@ F1 score: 0.7642 \
 Dataset: v1 (9 classes) \
 Comment: Первый запуск на сыром датасете v1. Низкое качество объясняется шумными метками и неоднородным распределением классов. Выявлена необходимость чистки и балансировки данных.
 
-![Скриншот](convnext_tiny_old.png)
+![Скриншот](img/convnext_tiny_old.png)
 
 **Baseline dataset v2** \
 Model: ConvNeXt-Tiny \
@@ -14,7 +14,7 @@ F1 score: 0.8867 \
 Dataset: v2 (9 classes) \
 Comment: Переход на датасет v2 (дочищенные метки, исправлен баланс классов через `WeightedRandomSampler`) дал прирост +7.0% accuracy и +12.3% F1. Архитектура не менялась — весь прирост за счёт данных.
 
-![Скриншот](Confusion_matrix_convnext_tiny.png)
+![Скриншот](img/Confusion_matrix_convnext_tiny.png)
 
 **Multihead** \
 Model: ConvNeXt-Tiny \
@@ -23,7 +23,7 @@ F1 score: 0.9044 \
 Dataset: v2 (9 classes) \
 Comment: Заменили одноголовый классификатор на двухголовый: `head_dn` (день/ночь) + `head_wt` (тип погоды). Итоговый класс — декартово произведение softmax двух голов через `COMBO_TO_FINAL`. Прирост +1.1% accuracy, +1.8% F1 — особенно снизилась путаница между `night` и ночными классами.
 
-![Скриншот](Confusion_matrix_convnext_tiny_multihead.png)
+![Скриншот](img/Confusion_matrix_convnext_tiny_multihead.png)
 
 **Focal loss + Multihead** \
 Model: ConvNeXt-Tiny \
@@ -53,7 +53,7 @@ F1 score: 0.9180 \
 Dataset: v2 (9 classes) \
 Comment: Test-Time Augmentation: оригинал + hflip + brightness + blur + affine + gamma. Вероятности усредняются по 6 проходам. Прирост +0.2% F1 при 6× увеличении latency. В продакшн-API не включён — для онлайн-инференса используется student-модель.
 
-![Скриншот](cm_tta.png)
+![Скриншот](img/cm_tta.png)
 
 ---
 
