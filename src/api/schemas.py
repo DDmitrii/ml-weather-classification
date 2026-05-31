@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 CLASS_NAMES = [
     "clear",
     "fog",
-    "for_rain",
+    "fog_rain",
     "night",
     "night_fog",
     "night_rain",
