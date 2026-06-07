@@ -10,7 +10,7 @@ import onnxruntime as ort
 from PIL import Image
 
 from src.api.schemas import CLASS_NAMES
-from src.data.dataset import COMBO_TO_FINAL
+from src.data.mappings import COMBO_TO_FINAL
 
 logger = logging.getLogger(__name__)
 
