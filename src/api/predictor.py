@@ -1,6 +1,6 @@
-# src/api/predictor.py
 import hashlib
 import logging
+import os
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -14,18 +14,48 @@ from src.data.dataset import COMBO_TO_FINAL
 
 logger = logging.getLogger(__name__)
 
-IMG_SIZE    = 224
-MAX_CACHE   = 256        # максимум записей в LRU-кэше
-MEAN        = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-STD         = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+IMG_SIZE  = 224
+MAX_CACHE = 256
+MEAN      = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+STD       = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 ONNX_PATHS = {
     "teacher": "exports/convnext_tiny_fp32.onnx",
     "student": "exports/mobilenet_v3_fp32.onnx",
 }
 
+HF_REPO = os.getenv("HF_REPO", "dmitriida/weather-classification-models")
 
-# ── LRU-кэш ─────────────────────────────────────────────────────────────────
+
+
+def _ensure_models() -> None:
+    """Скачивает ONNX-модели с HF Hub если их нет локально."""
+    missing = [fname for fname in ONNX_PATHS.values() if not Path(fname).exists()]
+    if not missing:
+        return
+
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError:
+        raise RuntimeError(
+            "huggingface_hub не установлен. Добавьте его в requirements.txt."
+        )
+
+    os.makedirs("exports", exist_ok=True)
+    for path in missing:
+        filename = Path(path).name
+        logger.info("Загружаю модель с HuggingFace: %s/%s", HF_REPO, filename)
+        hf_hub_download(
+            repo_id=HF_REPO,
+            filename=filename,
+            local_dir="exports",
+        )
+        logger.info("Загружено: %s", path)
+
+
+_ensure_models()
+
+
 
 class LRUCache:
     """Простой thread-safe LRU-кэш на OrderedDict."""
@@ -51,7 +81,6 @@ class LRUCache:
         return len(self._cache)
 
 
-# ── Препроцессинг ────────────────────────────────────────────────────────────
 
 def _preprocess(image: Image.Image) -> np.ndarray:
     image = image.convert("RGB").resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
@@ -71,7 +100,6 @@ def _image_hash(image: Image.Image) -> str:
     return hashlib.md5(image.tobytes()).hexdigest()
 
 
-# ── Predictor ────────────────────────────────────────────────────────────────
 
 class WeatherPredictor:
     """
@@ -88,7 +116,7 @@ class WeatherPredictor:
             if not p.exists():
                 raise FileNotFoundError(
                     f"ONNX-модель не найдена: {path}. "
-                    "Запустите src/export_onnx.py перед стартом сервиса."
+                    "Проверьте HF_REPO или запустите src/export_onnx.py."
                 )
             self._sessions[model_name] = ort.InferenceSession(
                 str(p),
@@ -106,14 +134,12 @@ class WeatherPredictor:
                 f"Неизвестная модель '{model}'. Доступны: {list(self._sessions)}"
             )
 
-        # ── Кэш ──────────────────────────────────────────────────────────────
         cache_key = f"{model}:{_image_hash(image)}"
         cached = self._caches[model].get(cache_key)
         if cached is not None:
             logger.debug("Cache hit: %s", cache_key)
             return {**cached, "inference_ms": 0.0, "cached": True}
 
-        # ── Инференс ─────────────────────────────────────────────────────────
         sess = self._sessions[model]
         x = _preprocess(image)
 
