@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Classifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ── Design Tokens ── */
+        :root {
+          --text-xs:   clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+          --text-sm:   clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+          --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+          --text-lg:   clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+          --text-xl:   clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+          --space-1: 0.25rem; --space-2: 0.5rem;  --space-3: 0.75rem;
+          --space-4: 1rem;    --space-5: 1.25rem; --space-6: 1.5rem;
+          --space-8: 2rem;    --space-10: 2.5rem; --space-12: 3rem;
+          --space-16: 4rem;
+          --radius-sm: 0.375rem; --radius-md: 0.5rem;
+          --radius-lg: 0.75rem;  --radius-xl: 1rem;
+          --radius-full: 9999px;
+          --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        :root, [data-theme="light"] {
+          --bg:             #f7f6f2;
+          --surface:        #f9f8f5;
+          --surface-2:      #fbfbf9;
+          --surface-offset: #f0ede8;
+          --divider:        #dcd9d5;
+          --border:         #d4d1ca;
+          --text:           #28251d;
+          --text-muted:     #7a7974;
+          --text-faint:     #bab9b4;
+          --primary:        #01696f;
+          --primary-hover:  #0c4e54;
+          --primary-hi:     #cedcd8;
+          --success:        #437a22;
+          --success-hi:     #d4dfcc;
+          --error:          #a12c7b;
+          --error-hi:       #e0ced7;
+          --warning:        #964219;
+          --warning-hi:     #ddcfc6;
+          --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+          --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.09);
+          --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.13);
+          --font-body: 'Inter', 'Helvetica Neue', sans-serif;
+          --font-mono: 'Geist Mono', 'Fira Code', monospace;
+        }
+        [data-theme="dark"] {
+          --bg:             #141312;
+          --surface:        #1a1917;
+          --surface-2:      #1f1e1c;
+          --surface-offset: #252320;
+          --divider:        #2a2926;
+          --border:         #353330;
+          --text:           #d0cfc9;
+          --text-muted:     #797876;
+          --text-faint:     #505050;
+          --primary:        #4f98a3;
+          --primary-hover:  #62b0bc;
+          --primary-hi:     #253a3d;
+          --success:        #6daa45;
+          --success-hi:     #2a3d22;
+          --error:          #d163a7;
+          --error-hi:       #3d2038;
+          --warning:        #bb653b;
+          --warning-hi:     #3d2518;
+          --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.3);
+          --shadow-md: 0 4px 14px oklch(0 0 0 / 0.4);
+          --shadow-lg: 0 12px 36px oklch(0 0 0 / 0.5);
+        }
+
+        /* ── Base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+        body {
+          min-height: 100dvh;
+          font-family: var(--font-body);
+          font-size: var(--text-base);
+          color: var(--text);
+          background: var(--bg);
+          transition: background var(--transition), color var(--transition);
+        }
+        button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+        img, svg { display: block; max-width: 100%; }
+        :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+        /* ── Layout ── */
+        .app { display: grid; grid-template-rows: auto 1fr auto; min-height: 100dvh; }
+
+        /* ── Header ── */
+        header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: var(--space-4) var(--space-6);
+          background: var(--surface);
+          border-bottom: 1px solid var(--divider);
+          position: sticky; top: 0; z-index: 10;
+        }
+        .logo {
+          display: flex; align-items: center; gap: var(--space-3);
+          font-size: var(--text-sm); font-weight: 600; color: var(--text);
+          text-decoration: none;
+        }
+        .logo svg { color: var(--primary); }
+        .logo-name { letter-spacing: -0.01em; }
+        .logo-version {
+          font-family: var(--font-mono);
+          font-size: var(--text-xs); font-weight: 400;
+          color: var(--text-faint);
+          background: var(--surface-offset);
+          padding: 2px var(--space-2);
+          border-radius: var(--radius-sm);
+        }
+        .header-right { display: flex; align-items: center; gap: var(--space-3); }
+        .badge-model {
+          font-family: var(--font-mono);
+          font-size: var(--text-xs);
+          color: var(--primary);
+          background: var(--primary-hi);
+          padding: 3px var(--space-2);
+          border-radius: var(--radius-sm);
+          white-space: nowrap;
+        }
+        .theme-btn {
+          width: 36px; height: 36px; border-radius: var(--radius-md);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--text-muted);
+          border: 1px solid var(--border);
+          transition: background var(--transition), color var(--transition);
+        }
+        .theme-btn:hover { background: var(--surface-offset); color: var(--text); }
+
+        /* ── Main ── */
+        main {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: var(--space-6);
+          padding: var(--space-8) var(--space-6);
+          max-width: 1100px;
+          margin: 0 auto;
+          width: 100%;
+          align-items: start;
+        }
+
+        /* ── Panel ── */
+        .panel {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .panel-header {
+          padding: var(--space-4) var(--space-5);
+          border-bottom: 1px solid var(--divider);
+          display: flex; align-items: center; justify-content: space-between;
+          flex-shrink: 0;
+        }
+        .panel-title {
+          font-size: var(--text-sm); font-weight: 600;
+          color: var(--text); letter-spacing: 0.01em;
+        }
+        .panel-body { padding: var(--space-5); flex: 1; }
+
+        /* ── Panel action footer ── */
+        .panel-action {
+          padding: var(--space-4) var(--space-5) var(--space-5);
+          border-top: 1px solid var(--divider);
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+          flex-shrink: 0;
+        }
+
+        /* ── Segmented model switcher ── */
+        .model-switcher {
+          display: flex;
+          background: var(--surface-offset);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: 3px;
+          gap: 3px;
+        }
+        .model-opt {
+          flex: 1;
+          display: flex; align-items: center; justify-content: center;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          border-radius: calc(var(--radius-md) - 3px);
+          cursor: pointer; user-select: none;
+          color: var(--text-muted);
+          transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+        }
+        .model-opt:has(input:checked) {
+          background: var(--surface);
+          color: var(--text);
+          box-shadow: var(--shadow-sm);
+        }
+        .model-opt input { display: none; }
+        .opt-dot {
+          width: 6px; height: 6px;
+          border-radius: var(--radius-full);
+          background: var(--text-faint);
+          flex-shrink: 0;
+          transition: background var(--transition);
+        }
+        .model-opt:has(input:checked) .opt-dot { background: var(--primary); }
+        .opt-label { font-size: var(--text-sm); font-weight: 500; line-height: 1; }
+        .opt-hint {
+          font-size: var(--text-xs); font-weight: 400;
+          color: var(--text-faint);
+          font-family: var(--font-mono);
+          margin-left: var(--space-1);
+        }
+        .model-opt:has(input:checked) .opt-hint { color: var(--text-muted); }
+
+        /* ── Predict button ── */
+        .predict-btn {
+          width: 100%;
+          padding: var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm); font-weight: 600;
+          background: var(--primary); color: #fff;
+          transition: background var(--transition), transform 60ms, opacity var(--transition);
+          opacity: 0.38;
+          pointer-events: none;
+          border: none;
+          cursor: not-allowed;
+        }
+        .predict-btn.active {
+          opacity: 1;
+          pointer-events: auto;
+          cursor: pointer;
+        }
+        .predict-btn:hover { background: var(--primary-hover); }
+        .predict-btn:active { transform: scale(0.99); }
+        .predict-btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+        /* ── Drop Zone ── */
+        .drop-zone {
+          border: 1.5px dashed var(--border);
+          border-radius: var(--radius-lg);
+          padding: var(--space-10) var(--space-6);
+          text-align: center;
+          cursor: pointer;
+          transition: border-color var(--transition), background var(--transition);
+          position: relative;
+        }
+        .drop-zone.drag-over {
+          border-color: var(--primary);
+          background: var(--primary-hi);
+        }
+        .drop-zone:hover { border-color: var(--primary); }
+        .drop-zone input[type="file"] {
+          position: absolute; inset: 0; opacity: 0; cursor: pointer;
+          width: 100%; height: 100%;
+        }
+        .drop-icon { color: var(--text-faint); margin: 0 auto var(--space-3); }
+        .drop-label {
+          font-size: var(--text-sm); color: var(--text-muted);
+          line-height: 1.5;
+        }
+        .drop-label strong { color: var(--primary); }
+        .drop-hint {
+          font-size: var(--text-xs); color: var(--text-faint);
+          margin-top: var(--space-2);
+        }
+
+        /* ── URL input ── */
+        .url-row {
+          display: flex; gap: var(--space-2); margin-top: var(--space-4);
+        }
+        .url-input {
+          flex: 1;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: var(--space-2) var(--space-3);
+          font-size: var(--text-sm);
+          color: var(--text);
+          transition: border-color var(--transition);
+        }
+        .url-input::placeholder { color: var(--text-faint); }
+        .url-input:focus { outline: none; border-color: var(--primary); }
+        .btn {
+          padding: var(--space-2) var(--space-4);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm); font-weight: 500;
+          transition: background var(--transition), color var(--transition);
+          white-space: nowrap;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-ghost { border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-ghost:hover { background: var(--surface-offset); color: var(--text); }
+
+        /* ── Preview ── */
+        .preview-area { margin-top: var(--space-4); display: none; }
+        .preview-area.visible { display: block; }
+        .preview-wrap {
+          position: relative;
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+          background: var(--surface-offset);
+          aspect-ratio: 16/9;
+        }
+        .preview-img { width: 100%; height: 100%; object-fit: cover; }
+        .preview-remove {
+          position: absolute; top: var(--space-2); right: var(--space-2);
+          width: 28px; height: 28px;
+          background: oklch(0 0 0 / 0.55);
+          border-radius: var(--radius-full);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff;
+          transition: background var(--transition);
+        }
+        .preview-remove:hover { background: oklch(0 0 0 / 0.8); }
+        .preview-meta {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-top: var(--space-2);
+        }
+        .preview-name { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); }
+
+        /* ── Result panel ── */
+        .result-empty {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; text-align: center;
+          padding: var(--space-16) var(--space-8);
+          color: var(--text-faint);
+          gap: var(--space-3);
+          min-height: 320px;
+        }
+        .result-empty svg { opacity: 0.35; }
+        .result-empty p { font-size: var(--text-sm); max-width: 28ch; line-height: 1.5; }
+
+        /* ── Skeleton ── */
+        @keyframes shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
+        }
+        .skeleton {
+          background: linear-gradient(90deg,
+            var(--surface-offset) 25%, var(--divider) 50%, var(--surface-offset) 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s ease-in-out infinite;
+          border-radius: var(--radius-sm);
+        }
+        .skeleton-result { display: none; padding: var(--space-5); gap: var(--space-4); flex-direction: column; }
+        .skeleton-result.visible { display: flex; }
+        .skel-h { height: 20px; width: 60%; }
+        .skel-big { height: 40px; width: 40%; }
+        .skel-bar { height: 12px; width: 100%; }
+        .skel-bar-sm { height: 10px; }
+
+        /* ── Result content ── */
+        .result-content { display: none; padding: var(--space-5); }
+        .result-content.visible { display: block; }
+        .class-hero {
+          display: flex; align-items: flex-start; gap: var(--space-4);
+          padding-bottom: var(--space-5);
+          border-bottom: 1px solid var(--divider);
+          margin-bottom: var(--space-5);
+        }
+        .class-icon { font-size: 2.5rem; line-height: 1; flex-shrink: 0; }
+        .class-info { flex: 1; }
+        .class-name {
+          font-size: var(--text-xl); font-weight: 700;
+          color: var(--text); letter-spacing: -0.02em; line-height: 1.1;
+        }
+        .class-desc { font-size: var(--text-sm); color: var(--text-muted); margin-top: var(--space-1); }
+        .confidence-row {
+          display: flex; align-items: center; gap: var(--space-3);
+          margin-top: var(--space-3);
+        }
+        .confidence-label { font-size: var(--text-xs); color: var(--text-muted); }
+        .confidence-bar-wrap {
+          flex: 1; height: 8px;
+          background: var(--surface-offset);
+          border-radius: var(--radius-full);
+          overflow: hidden;
+        }
+        .confidence-bar {
+          height: 100%; background: var(--primary);
+          border-radius: var(--radius-full);
+          transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          width: 0;
+        }
+        .confidence-pct {
+          font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 500;
+          color: var(--primary); min-width: 3.5ch; text-align: right;
+        }
+
+        /* ── Stats ── */
+        .stats-row {
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: var(--space-3); margin-bottom: var(--space-5);
+        }
+        .stat-card {
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: var(--space-3) var(--space-4);
+        }
+        .stat-label { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-1); }
+        .stat-value { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 500; color: var(--text); }
+
+        /* ── All classes toggle ── */
+        .all-classes-toggle {
+          width: 100%; text-align: left;
+          padding: var(--space-3) var(--space-1);
+          font-size: var(--text-sm); color: var(--text-muted);
+          border-top: 1px solid var(--divider);
+          display: flex; align-items: center; gap: var(--space-2);
+          transition: color var(--transition);
+        }
+        .all-classes-toggle:hover { color: var(--text); }
+        .toggle-arrow { display: inline-block; transition: transform 200ms; }
+        .all-classes-toggle.open .toggle-arrow { transform: rotate(180deg); }
+        .all-classes-list { display: none; margin-top: var(--space-3); }
+        .all-classes-list.open { display: block; }
+        .class-row {
+          display: grid;
+          grid-template-columns: 1.5rem 7rem 1fr 3.5rem;
+          align-items: center; gap: var(--space-2); padding: var(--space-2) 0;
+        }
+        .class-row + .class-row { border-top: 1px solid var(--divider); }
+        .class-row-emoji { font-size: 1rem; }
+        .class-row-name { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); }
+        .class-row-bar-wrap { height: 6px; background: var(--surface-offset); border-radius: var(--radius-full); overflow: hidden; }
+        .class-row-bar {
+          height: 100%; border-radius: var(--radius-full);
+          background: var(--primary); opacity: 0.55;
+          transition: width 500ms cubic-bezier(0.34, 1.56, 0.64, 1); width: 0;
+        }
+        .class-row-bar.top { opacity: 1; }
+        .class-row-pct { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-align: right; }
+
+        /* ── Error state ── */
+        .error-state { display: none; padding: var(--space-5); text-align: center; flex-direction: column; align-items: center; gap: var(--space-3); }
+        .error-state.visible { display: flex; }
+        .error-badge {
+          background: var(--error-hi); color: var(--error);
+          border-radius: var(--radius-md);
+          padding: var(--space-2) var(--space-4);
+          font-size: var(--text-sm); font-weight: 500;
+        }
+        .error-msg { font-size: var(--text-sm); color: var(--text-muted); max-width: 30ch; line-height: 1.5; }
+        .retry-btn {
+          padding: var(--space-2) var(--space-5);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm); color: var(--text-muted);
+        }
+        .retry-btn:hover { background: var(--surface-offset); color: var(--text); }
+
+        /* ── Footer ── */
+        footer {
+          padding: var(--space-4) var(--space-6);
+          border-top: 1px solid var(--divider);
+          display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+          font-size: var(--text-xs); color: var(--text-faint);
+        }
+        footer span { font-family: var(--font-mono); }
+
+        /* ── Responsive ── */
+        @media (max-width: 720px) {
+          main { grid-template-columns: 1fr; padding: var(--space-4); gap: var(--space-4); }
+          .stats-row { grid-template-columns: 1fr 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- ── Header ── -->
+    <header>
+        <a class="logo" href="#">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="WeatherCam logo">
+                <path d="M7 18a5 5 0 1 1 .8-9.94A6 6 0 1 1 20 14H7z"
+                      stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                <circle cx="20" cy="20" r="5" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="20" y1="15" x2="20" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="20" y1="23" x2="20" y2="25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="15" y1="20" x2="17" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="23" y1="20" x2="25" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="20" cy="20" r="1.5" fill="currentColor"/>
+            </svg>
+            <span class="logo-name">WeatherCam</span>
+            <span class="logo-version">v1.0</span>
+        </a>
+        <div class="header-right">
+            <span class="badge-model">ConvNeXt-Tiny · TTA×6</span>
+            <button class="theme-btn" data-theme-toggle aria-label="Переключить тему">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Main ── -->
+    <main>
+
+        <!-- LEFT: Upload -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Изображение</span>
+            </div>
+            <div class="panel-body">
+                <!-- Drop zone -->
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/avif">
+                    <svg class="drop-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p class="drop-label"><strong>Перетащите фото</strong> или кликните для выбора</p>
+                    <p class="drop-hint">PNG, JPG, WEBP, AVIF · до 10 МБ</p>
+                </div>
+
+                <!-- URL row -->
+                <div class="url-row">
+                    <input type="url" class="url-input" id="urlInput" placeholder="Или вставьте URL изображения…">
+                    <button class="btn btn-ghost" id="urlLoadBtn">Загрузить</button>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-area" id="previewArea">
+                    <div class="preview-wrap">
+                        <img class="preview-img" id="previewImg" src="" alt="Предпросмотр">
+                        <button class="preview-remove" id="previewRemove" aria-label="Удалить изображение">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="preview-meta">
+                        <span class="preview-name" id="previewName"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action footer: switcher + button -->
+            <div class="panel-action">
+                <div class="model-switcher">
+                    <label class="model-opt">
+                        <input type="radio" name="modelChoice" value="student" checked>
+                        <span class="opt-dot"></span>
+                        <span class="opt-label">Student <span class="opt-hint">5.8 MB</span></span>
+                    </label>
+                    <label class="model-opt">
+                        <input type="radio" name="modelChoice" value="teacher">
+                        <span class="opt-dot"></span>
+                        <span class="opt-label">Teacher <span class="opt-hint">106 MB</span></span>
+                    </label>
+                </div>
+                <button class="predict-btn" id="predictBtn">
+                    Классифицировать →
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT: Result -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Результат</span>
+                <span class="badge-model" id="resultModelBadge" style="display:none"></span>
+            </div>
+
+            <!-- Empty state -->
+            <div class="result-empty" id="resultEmpty">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <p>Загрузите изображение и нажмите «Классифицировать»</p>
+            </div>
+
+            <!-- Skeleton -->
+            <div class="skeleton-result" id="skeletonResult">
+                <div class="skeleton skel-h"></div>
+                <div class="skeleton skel-big"></div>
+                <div class="skeleton skel-bar"></div>
+                <div class="skeleton skel-bar skel-bar-sm" style="width:80%"></div>
+                <div class="skeleton skel-bar skel-bar-sm" style="width:60%"></div>
+            </div>
+
+            <!-- Error -->
+            <div class="error-state" id="errorState">
+                <div class="error-badge">Ошибка</div>
+                <p class="error-msg" id="errorMsg">Не удалось связаться с сервером. Убедитесь, что API запущен.</p>
+                <button class="retry-btn" id="retryBtn">Повторить</button>
+            </div>
+
+            <!-- Result -->
+            <div class="result-content" id="resultContent">
+                <div class="class-hero">
+                    <div class="class-icon" id="classIcon">🌤️</div>
+                    <div class="class-info">
+                        <div class="class-name" id="className">—</div>
+                        <div class="class-desc" id="classDesc">—</div>
+                        <div class="confidence-row">
+                            <span class="confidence-label">Уверенность</span>
+                            <div class="confidence-bar-wrap">
+                                <div class="confidence-bar" id="confBar"></div>
+                            </div>
+                            <span class="confidence-pct" id="confPct">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-label">Модель</div>
+                        <div class="stat-value" id="statModel">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Латентность</div>
+                        <div class="stat-value" id="statLatency">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Кэш</div>
+                        <div class="stat-value" id="statTta">—</div>
+                    </div>
+                </div>
+
+                <button class="all-classes-toggle" id="allClassesToggle">
+                    <span class="toggle-arrow">▾</span>
+                    Все классы
+                </button>
+                <div class="all-classes-list" id="allClassesList"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ── Footer ── -->
+    <footer>
+        <span>ml-weather-classification</span> · ConvNeXt-Tiny · Macro F1 91.8%
+    </footer>
+
+</div>
+
+<script>
+    const API = "https://ml-weather-classification-production.up.railway.app";
+
+    // ── Theme ──────────────────────────────────────────────────────────────────
+    (function () {
+        const btn = document.querySelector('[data-theme-toggle]');
+        const root = document.documentElement;
+        let dark = matchMedia('(prefers-color-scheme: dark)').matches;
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        if (btn) btn.addEventListener('click', () => {
+            dark = !dark;
+            root.setAttribute('data-theme', dark ? 'dark' : 'light');
+            btn.innerHTML = dark
+                ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+                : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+        });
+    })();
+
+    // ── DOM refs ───────────────────────────────────────────────────────────────
+    const dropZone       = document.getElementById('dropZone');
+    const fileInput      = document.getElementById('fileInput');
+    const urlInput       = document.getElementById('urlInput');
+    const urlLoadBtn     = document.getElementById('urlLoadBtn');
+    const previewArea    = document.getElementById('previewArea');
+    const previewImg     = document.getElementById('previewImg');
+    const previewRemove  = document.getElementById('previewRemove');
+    const previewName    = document.getElementById('previewName');
+    const predictBtn     = document.getElementById('predictBtn');
+    const resultEmpty    = document.getElementById('resultEmpty');
+    const skeletonResult = document.getElementById('skeletonResult');
+    const errorState     = document.getElementById('errorState');
+    const errorMsg       = document.getElementById('errorMsg');
+    const retryBtn       = document.getElementById('retryBtn');
+    const resultContent  = document.getElementById('resultContent');
+    const classIcon      = document.getElementById('classIcon');
+    const className      = document.getElementById('className');
+    const classDesc      = document.getElementById('classDesc');
+    const confBar        = document.getElementById('confBar');
+    const confPct        = document.getElementById('confPct');
+    const statModel      = document.getElementById('statModel');
+    const statLatency    = document.getElementById('statLatency');
+    const statTta        = document.getElementById('statTta');
+    const resultModelBadge = document.getElementById('resultModelBadge');
+    const allClassesToggle = document.getElementById('allClassesToggle');
+    const allClassesList   = document.getElementById('allClassesList');
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    let currentFile = null;
+    let currentUrl  = null;
+
+    const CLASS_META = {
+        clear:       { icon: '☀️',  desc: 'Ясно + день' },
+        fog:         { icon: '🌫️', desc: 'Туман + день' },
+        fog_rain:    { icon: '🌥️', desc: 'Туман + дождь' },
+        night:       { icon: '🌙', desc: 'Ночь + ясно' },
+        night_fog:   { icon: '🌁', desc: 'Ночь + туман' },
+        night_rain:  { icon: '🌧️', desc: 'Ночь + дождь' },
+        night_snow:  { icon: '❄️',  desc: 'Ночь + снег' },
+        rain:        { icon: '🌧️', desc: 'Дождь + день' },
+        snow:        { icon: '🌨️', desc: 'Снег + день' },
+    };
+
+    // ── Image load ─────────────────────────────────────────────────────────────
+    function setImage(src, name) {
+        previewImg.src = src;
+        previewName.textContent = name || '';
+        previewArea.classList.add('visible');
+        predictBtn.classList.add('active');
+        predictBtn.disabled = false;
+        resetResult();
+    }
+
+    function clearImage() {
+        currentFile = null;
+        currentUrl  = null;
+        previewImg.src = '';
+        previewArea.classList.remove('visible');
+        predictBtn.classList.remove('active');
+        predictBtn.disabled = true;
+        resetResult();
+    }
+
+    fileInput.addEventListener('change', () => {
+        const f = fileInput.files[0];
+        if (!f) return;
+        currentFile = f; currentUrl = null;
+        setImage(URL.createObjectURL(f), f.name);
+    });
+
+    urlLoadBtn.addEventListener('click', () => {
+        const u = urlInput.value.trim();
+        if (!u) return;
+        currentUrl = u; currentFile = null;
+        setImage(u, u.split('/').pop().slice(0, 40));
+    });
+
+    previewRemove.addEventListener('click', clearImage);
+
+    // Drag & drop
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (!f) return;
+        currentFile = f; currentUrl = null;
+        setImage(URL.createObjectURL(f), f.name);
+    });
+
+    // ── UI states ──────────────────────────────────────────────────────────────
+    function resetResult() {
+        resultEmpty.style.display = '';
+        skeletonResult.classList.remove('visible');
+        errorState.classList.remove('visible');
+        resultContent.classList.remove('visible');
+        resultModelBadge.style.display = 'none';
+    }
+
+    function showSkeleton() {
+        resultEmpty.style.display = 'none';
+        skeletonResult.classList.add('visible');
+        errorState.classList.remove('visible');
+        resultContent.classList.remove('visible');
+        resultModelBadge.style.display = 'none';
+    }
+
+    function showError(msg) {
+        resultEmpty.style.display = 'none';
+        skeletonResult.classList.remove('visible');
+        errorState.classList.add('visible');
+        resultContent.classList.remove('visible');
+        resultModelBadge.style.display = 'none';
+        errorMsg.textContent = msg;
+    }
+
+    function showResult(data) {
+        resultEmpty.style.display = 'none';
+        skeletonResult.classList.remove('visible');
+        errorState.classList.remove('visible');
+        resultContent.classList.add('visible');
+        renderResult(data);
+    }
+
+    // ── Render result ──────────────────────────────────────────────────────────
+    function renderResult(data) {
+        const cls  = data.class || 'clear';
+        const meta = CLASS_META[cls] || { icon: '🌤️', desc: cls };
+        const pct  = Math.round((data.confidence || 0) * 100);
+
+        classIcon.textContent  = meta.icon;
+        className.textContent  = cls;
+        classDesc.textContent  = meta.desc;
+        confPct.textContent    = pct + '%';
+
+        confBar.style.width = '0';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                confBar.style.width = pct + '%';
+            });
+        });
+
+        statModel.textContent   = data.model || '—';
+        statLatency.textContent = data.inference_ms != null ? data.inference_ms.toFixed(1) + ' ms' : '—';
+        statTta.textContent     = data.cached ? 'cached ✓' : 'miss';
+
+        resultModelBadge.textContent  = data.model || '';
+        resultModelBadge.style.display = '';
+
+        // All classes list
+        const probs = data.probabilities || {};
+        const sorted = Object.entries(probs).sort((a, b) => b[1] - a[1]);
+        const topCls = sorted[0]?.[0];
+
+        allClassesList.innerHTML = sorted.map(([name, prob]) => {
+            const m   = CLASS_META[name] || { icon: '🌤️' };
+            const p   = (prob * 100).toFixed(1);
+            const isTop = name === topCls;
+            return `<div class="class-row">
+                <span class="class-row-emoji">${m.icon}</span>
+                <span class="class-row-name">${name}</span>
+                <div class="class-row-bar-wrap">
+                    <div class="class-row-bar${isTop ? ' top' : ''}" style="width:0" data-w="${p}"></div>
+                </div>
+                <span class="class-row-pct">${p}%</span>
+            </div>`;
+        }).join('');
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                allClassesList.querySelectorAll('.class-row-bar').forEach(bar => {
+                    bar.style.width = bar.dataset.w + '%';
+                });
+            });
+        });
+    }
+
+    // ── All classes toggle ─────────────────────────────────────────────────────
+    allClassesToggle.addEventListener('click', () => {
+        allClassesToggle.classList.toggle('open');
+        allClassesList.classList.toggle('open');
+    });
+
+    // ── Predict ────────────────────────────────────────────────────────────────
+    const selectedModel = () => document.querySelector('input[name="modelChoice"]:checked')?.value || 'student';
+
+    async function predict() {
+        if (!currentFile && !currentUrl) return;
+        predictBtn.disabled = true;
+        predictBtn.textContent = 'Обработка…';
+        showSkeleton();
+
+        let response;
+        try {
+            const form = new FormData();
+            if (currentFile) {
+                form.append('image', currentFile);
+            } else {
+                const imgResp = await fetch(currentUrl);
+                const blob = await imgResp.blob();
+                form.append('image', blob, 'image.jpg');
+            }
+            response = await fetch(`${API}/predict?model=${selectedModel()}`, { method: 'POST', body: form });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            showResult(data);
+        } catch (e) {
+            console.error('PREDICT ERROR:', e);
+            const isNetwork = e instanceof TypeError;
+            showError(isNetwork
+                ? 'Сервер недоступен. Запустите: uvicorn src.api.app:app --port 8000'
+                : e.message || 'Неизвестная ошибка');
+        } finally {
+            predictBtn.disabled = false;
+            predictBtn.textContent = 'Классифицировать →';
+        }
+    }
+
+    predictBtn.addEventListener('click', predict);
+    retryBtn.addEventListener('click', predict);
+</script>
+</body>
+</html>
